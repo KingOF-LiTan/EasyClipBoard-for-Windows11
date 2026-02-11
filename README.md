@@ -1,0 +1,1 @@
+# EasyClipBoard-for-Windows11
