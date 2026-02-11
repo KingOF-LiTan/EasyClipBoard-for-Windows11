@@ -236,7 +236,7 @@
                                               VerticalAlignment="Center" Foreground="{ThemeResource SystemFillColorCriticalBrush}"/>
 
                                     <!-- 信息 -->
-                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
                                         <TextBlock Text="{x:Bind DisplayName, Mode=OneWay}" FontWeight="SemiBold" FontSize="13"/>
                                         
                                         <!-- 账号行 (仅存在时显示) -->
@@ -244,13 +244,14 @@
                                             <FontIcon Glyph="&#xE77B;" FontSize="12" Opacity="0.5" ToolTipService.ToolTip="账号" VerticalAlignment="Center"/>
                                             <TextBlock Text="{x:Bind Username, Mode=OneWay}" FontSize="12" Opacity="0.9" FontFamily="Consolas" VerticalAlignment="Center"/>
                                             <Button FontFamily="{StaticResource SymbolThemeFontFamily}" Content="&#xE8C8;" 
-                                                    FontSize="10" Padding="4,2" Background="Transparent" BorderThickness="0" VerticalAlignment="Center"
+                                                    FontSize="10" Padding="4,0" Background="Transparent" BorderThickness="0" VerticalAlignment="Center"
                                                     Click="SecretCopyUser_Click" ToolTipService.ToolTip="复制账号"/>
                                         </StackPanel>
 
+                                        <!-- 密码/内容行 -->
                                         <StackPanel Orientation="Horizontal" Spacing="6">
-                                            <TextBlock Text="{x:Bind SensitiveTypeName}" FontSize="11" Opacity="0.5"/>
-                                            <TextBlock Text="{x:Bind MaskedPreview, Mode=OneWay}" FontSize="11" Opacity="0.6" FontFamily="Consolas"/>
+                                            <FontIcon Glyph="{x:Bind SensitiveTypeIcon, Mode=OneWay}" FontSize="12" Opacity="0.5" ToolTipService.ToolTip="{x:Bind SensitiveTypeName, Mode=OneWay}" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{x:Bind MaskedPreview, Mode=OneWay}" FontSize="12" Opacity="0.6" FontFamily="Consolas" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </StackPanel>
 

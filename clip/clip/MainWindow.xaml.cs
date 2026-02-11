@@ -147,6 +147,13 @@ public sealed partial class MainWindow : Window, System.ComponentModel.INotifyPr
     private async void BtnHistory_Click(object sender, RoutedEventArgs e)
     {
         if (ViewModel == null) return;
+
+        // 点击历史按钮时，如果隐形面板开着，则关闭
+        if (SecretPanel.Visibility == Visibility.Visible)
+        {
+            SecretPanel.Visibility = Visibility.Collapsed;
+        }
+
         ViewModel.ShowFavorites = false;
         BtnHistory.Style = (Style)Application.Current.Resources["AccentButtonStyle"];
         BtnFavorites.Style = (Style)Application.Current.Resources["DefaultButtonStyle"];
