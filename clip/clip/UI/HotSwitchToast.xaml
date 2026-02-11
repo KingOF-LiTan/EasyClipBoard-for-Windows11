@@ -1,0 +1,59 @@
+<Window
+    x:Class="clip.UI.HotSwitchToast"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid x:Name="RootGrid" Background="#CC000000">
+        <Border x:Name="ToastBorder"
+                Background="#CC000000"
+                CornerRadius="8"
+                Padding="10,6"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Opacity="0">
+            <Border.RenderTransform>
+                <CompositeTransform x:Name="ToastTransform" ScaleX="0.9" ScaleY="0.9"/>
+            </Border.RenderTransform>
+            
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <FontIcon Glyph="&#xE8C1;" FontSize="12" Foreground="White" />
+                <TextBlock x:Name="PreviewText" 
+                           Foreground="White" 
+                           FontSize="12" 
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"
+                           MaxWidth="240"/>
+            </StackPanel>
+        </Border>
+
+        <Grid.Resources>
+            <Storyboard x:Name="ShowStory">
+                <DoubleAnimation Storyboard.TargetName="ToastBorder"
+                                 Storyboard.TargetProperty="Opacity"
+                                 To="1" Duration="0:0:0.2" />
+                <DoubleAnimation Storyboard.TargetName="ToastTransform"
+                                 Storyboard.TargetProperty="ScaleX"
+                                 To="1" Duration="0:0:0.2">
+                    <DoubleAnimation.EasingFunction>
+                        <BackEase EasingMode="EaseOut" Amplitude="0.5" />
+                    </DoubleAnimation.EasingFunction>
+                </DoubleAnimation>
+                <DoubleAnimation Storyboard.TargetName="ToastTransform"
+                                 Storyboard.TargetProperty="ScaleY"
+                                 To="1" Duration="0:0:0.2">
+                    <DoubleAnimation.EasingFunction>
+                        <BackEase EasingMode="EaseOut" Amplitude="0.5" />
+                    </DoubleAnimation.EasingFunction>
+                </DoubleAnimation>
+            </Storyboard>
+            <Storyboard x:Name="HideStory">
+                <DoubleAnimation Storyboard.TargetName="ToastBorder"
+                                 Storyboard.TargetProperty="Opacity"
+                                 To="0" Duration="0:0:0.3" BeginTime="0:0:1.2" />
+            </Storyboard>
+        </Grid.Resources>
+    </Grid>
+</Window>

@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "clip (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "clip (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

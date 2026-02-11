@@ -1,0 +1,297 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="clip.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:clip"
+    xmlns:vm="using:clip.ViewModels"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Title="clip">
+
+    <Window.SystemBackdrop>
+        <MicaBackdrop />
+    </Window.SystemBackdrop>
+
+    <Grid x:Name="RootGrid" Background="Transparent">
+        <Border x:Name="ContentBorder" 
+                Background="{ThemeResource LayerFillColorDefaultBrush}"
+                CornerRadius="12"
+                BorderThickness="1"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                Opacity="0">
+            <Border.RenderTransform>
+                <CompositeTransform x:Name="RootTransform" />
+            </Border.RenderTransform>
+            
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0" Padding="16,12,16,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Button x:Name="BtnHistory"
+                            Grid.Column="0"
+                            Content="📋 历史记录"
+                            HorizontalAlignment="Stretch"
+                            Margin="0,0,4,0"
+                            Click="BtnHistory_Click"
+                            Style="{ThemeResource AccentButtonStyle}"/>
+
+                    <Button x:Name="BtnFavorites"
+                            Grid.Column="1"
+                            Content="⭐ 收藏夹"
+                            HorizontalAlignment="Stretch"
+                            Margin="4,0,0,0"
+                            Click="BtnFavorites_Click"
+                            RightTapped="BtnFavorites_RightTapped"/>
+
+                    <Button x:Name="BtnClear"
+                            Grid.Column="2"
+                            Margin="8,0,0,0"
+                            ToolTipService.ToolTip="清空历史"
+                            Click="BtnClear_Click">
+                        <FontIcon Glyph="&#xE74D;" FontSize="14"/>
+                    </Button>
+                </Grid>
+
+
+
+                <TextBox x:Name="SearchBox"
+                         Grid.Row="1"
+                         PlaceholderText="搜索..."
+                         Margin="16,0,16,8"
+                         TextChanged="SearchBox_TextChanged"/>
+
+                <ListView x:Name="ItemListView"
+                          Grid.Row="2"
+                          Padding="8,0,8,8"
+                          SelectionMode="None"
+                          IsItemClickEnabled="True"
+                          ItemClick="ItemListView_ItemClick">
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ClipboardItemViewModel">
+                            <Grid Padding="12,16" MinHeight="100" Background="Transparent" RightTapped="ItemGrid_RightTapped">
+                                <Grid.ContextFlyout>
+                                    <MenuFlyout>
+                                        <MenuFlyoutItem Text="加入/取消收藏" Icon="Favorite" Click="MenuAddToFavorites_Click"/>
+                                        <MenuFlyoutItem Text="重命名/别名" Icon="Rename" Click="MenuRename_Click"/>
+                                        <MenuFlyoutItem Text="删除" Icon="Delete" Click="MenuDelete_Click"/>
+                                    </MenuFlyout>
+                                </Grid.ContextFlyout>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <FontIcon Grid.Column="0"
+                                          Glyph="{x:Bind TypeIcon}"
+                                          FontSize="22"
+                                          VerticalAlignment="Top"
+                                          Margin="0,4,16,0"
+                                          Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+
+                                <Grid Grid.Column="1">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <Grid Grid.Row="0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <CheckBox IsChecked="{x:Bind IsSelected, Mode=TwoWay}" Margin="0,0,8,0" Visibility="{x:Bind IsSelectedVisibility, Mode=OneWay}"/>
+                                            <TextBlock Grid.Column="1" Text="{x:Bind DisplayName, Mode=OneWay}" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center"/>
+                                        </Grid>
+                                        
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                            <Button FontFamily="{StaticResource SymbolThemeFontFamily}" Content="&#xE734;" 
+                                                    FontSize="14" Padding="6" Background="Transparent" BorderThickness="0"
+                                                    Foreground="{x:Bind ImportantBrush, Mode=OneWay}" Opacity="{x:Bind ImportantOpacity, Mode=OneWay}"
+                                                    Click="MenuFavorite_Click" ToolTipService.ToolTip="重要"/>
+                                            <Button FontFamily="{StaticResource SymbolThemeFontFamily}" Content="&#xE718;" 
+                                                    FontSize="14" Padding="6" Background="Transparent" BorderThickness="0"
+                                                    Foreground="{x:Bind FrequentBrush, Mode=OneWay}" Opacity="{x:Bind FrequentOpacity, Mode=OneWay}"
+                                                    Click="MenuFrequent_Click" ToolTipService.ToolTip="常用"/>
+                                            <Button FontFamily="{StaticResource SymbolThemeFontFamily}" Content="&#xE8BD;" 
+                                                    FontSize="14" Padding="6" Background="Transparent" BorderThickness="0"
+                                                    Foreground="{x:Bind ScriptBrush, Mode=OneWay}" Opacity="{x:Bind ScriptOpacity, Mode=OneWay}"
+                                                    Click="MenuScript_Click" ToolTipService.ToolTip="话术"/>
+                                            <Button FontFamily="{StaticResource SymbolThemeFontFamily}" Content="&#xE8EC;" 
+                                                    FontSize="14" Padding="6" Background="Transparent" BorderThickness="0"
+                                                    Foreground="{x:Bind TemporaryBrush, Mode=OneWay}" Opacity="{x:Bind TemporaryOpacity, Mode=OneWay}"
+                                                    Click="MenuTemporary_Click" ToolTipService.ToolTip="临时"/>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <StackPanel Grid.Row="1" Margin="0,8,0,8">
+                                        <TextBlock Text="{x:Bind Preview}"
+                                                   TextWrapping="Wrap"
+                                                   MaxLines="3"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   FontSize="13"
+                                                   Opacity="0.8"
+                                                   Visibility="{x:Bind TextVisibility}"/>
+
+                                        <Image Source="{x:Bind Thumbnail}"
+                                               MaxHeight="140"
+                                               HorizontalAlignment="Stretch"
+                                               Stretch="UniformToFill"
+                                               Visibility="{x:Bind ThumbnailVisibility}"/>
+                                    </StackPanel>
+
+                                    <Grid Grid.Row="2" Margin="0,4,0,0">
+                                        <TextBlock Text="{x:Bind TimeAgo}" FontSize="11" Opacity="0.5" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Border HorizontalAlignment="Right" Padding="10,4" CornerRadius="12" Background="{x:Bind TagBackground, Mode=OneWay}">
+                                            <TextBlock Text="{x:Bind TagName}" FontSize="10" FontWeight="Bold" Foreground="{x:Bind TagForeground, Mode=OneWay}"/>
+                                        </Border>
+                                    </Grid>
+                                </Grid>
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,20" Spacing="10" 
+                            Visibility="{x:Bind ViewModel.HasSelectionVisibility, Mode=OneWay}"
+                            Background="{ThemeResource SystemControlBackgroundChromeMediumLowBrush}" CornerRadius="20" Padding="16,8">
+                    <Button Content="删除选中" Click="BatchDelete_Click"/>
+                    <Button Content="收藏选中" Click="BatchFavorite_Click"/>
+                    <Button Content="取消选择" Click="BatchCancel_Click"/>
+                </StackPanel>
+
+                <TextBlock x:Name="EmptyHint"
+                           Grid.Row="2"
+                           Text="暂无记录"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           Opacity="0.4"
+                           FontSize="14"
+                           Visibility="{x:Bind ViewModel.IsEmptyVisibility, Mode=OneWay}"/>
+
+                <!-- 隐形密码入口面板 (Overlay) -->
+                <Grid x:Name="SecretPanel" Grid.Row="1" Grid.RowSpan="2" Visibility="Collapsed" 
+                      Background="{ThemeResource SolidBackgroundFillColorBaseBrush}" 
+                      BorderBrush="{ThemeResource SystemFillColorCriticalBrush}" BorderThickness="1"
+                      Padding="16,8" CornerRadius="8" Margin="12,0,12,12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- 标题栏 -->
+                    <Grid Grid.Row="0" Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="🔐 敏感信息保险箱" FontWeight="Bold" VerticalAlignment="Center" Foreground="{ThemeResource SystemFillColorCriticalBrush}"/>
+                        <Button Grid.Column="1" Content="＋ 添加" FontSize="12" Padding="8,4" Margin="0,0,4,0"
+                                Click="SecretAdd_Click" ToolTipService.ToolTip="手动添加账号密码"/>
+                        <Button Grid.Column="2" Content="✕" FontSize="12" Padding="6,4" Background="Transparent" BorderThickness="0"
+                                Click="SecretClose_Click" ToolTipService.ToolTip="关闭"/>
+                    </Grid>
+
+                    <!-- 搜索框 -->
+                    <TextBox x:Name="SecretSearchBox" Grid.Row="1" PlaceholderText="搜索别名/备注..." Margin="0,0,0,8" 
+                             TextChanged="SecretSearchBox_TextChanged"/>
+
+                    <!-- 敏感信息列表 -->
+                    <ListView x:Name="SecretListView" Grid.Row="2"
+                              ItemsSource="{x:Bind ViewModel.SensitiveItems, Mode=OneWay}"
+                              SelectionMode="None">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ClipboardItemViewModel">
+                                <Grid Padding="8,10" ColumnSpacing="10" Background="Transparent">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- 类型图标 -->
+                                    <FontIcon Grid.Column="0" Glyph="{x:Bind SensitiveTypeIcon}" FontSize="20" 
+                                              VerticalAlignment="Center" Foreground="{ThemeResource SystemFillColorCriticalBrush}"/>
+
+                                    <!-- 信息 -->
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                        <TextBlock Text="{x:Bind DisplayName, Mode=OneWay}" FontWeight="SemiBold" FontSize="13"/>
+                                        
+                                        <!-- 账号行 (仅存在时显示) -->
+                                        <StackPanel Orientation="Horizontal" Spacing="6" Visibility="{x:Bind UsernameVisibility, Mode=OneWay}">
+                                            <FontIcon Glyph="&#xE77B;" FontSize="12" Opacity="0.5" ToolTipService.ToolTip="账号" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{x:Bind Username, Mode=OneWay}" FontSize="12" Opacity="0.9" FontFamily="Consolas" VerticalAlignment="Center"/>
+                                            <Button FontFamily="{StaticResource SymbolThemeFontFamily}" Content="&#xE8C8;" 
+                                                    FontSize="10" Padding="4,2" Background="Transparent" BorderThickness="0" VerticalAlignment="Center"
+                                                    Click="SecretCopyUser_Click" ToolTipService.ToolTip="复制账号"/>
+                                        </StackPanel>
+
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock Text="{x:Bind SensitiveTypeName}" FontSize="11" Opacity="0.5"/>
+                                            <TextBlock Text="{x:Bind MaskedPreview, Mode=OneWay}" FontSize="11" Opacity="0.6" FontFamily="Consolas"/>
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <!-- 操作按钮 -->
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+                                        <Button FontFamily="{StaticResource SymbolThemeFontFamily}" Content="&#xE8C8;" 
+                                                FontSize="13" Padding="6" Background="Transparent" BorderThickness="0"
+                                                Click="SecretCopy_Click" ToolTipService.ToolTip="复制内容(解密)"/>
+                                        <Button FontFamily="{StaticResource SymbolThemeFontFamily}" Content="&#xE7B3;" 
+                                                FontSize="13" Padding="6" Background="Transparent" BorderThickness="0"
+                                                Click="SecretToggleView_Click" ToolTipService.ToolTip="查看/隐藏"/>
+                                        <Button FontFamily="{StaticResource SymbolThemeFontFamily}" Content="&#xE74D;" 
+                                                FontSize="13" Padding="6" Background="Transparent" BorderThickness="0"
+                                                Click="SecretDelete_Click" ToolTipService.ToolTip="删除"/>
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <Grid.Resources>
+            <!-- 弹性下滑动画：从上方滑入 + 弹性回弹，无缩放/旋转避免文字模糊 -->
+            <Storyboard x:Name="SlideDownStory">
+                <DoubleAnimation Storyboard.TargetName="ContentBorder"
+                                 Storyboard.TargetProperty="Opacity"
+                                 From="0" To="1" Duration="0:0:0.25">
+                    <DoubleAnimation.EasingFunction>
+                        <CubicEase EasingMode="EaseOut" />
+                    </DoubleAnimation.EasingFunction>
+                </DoubleAnimation>
+                <DoubleAnimation Storyboard.TargetName="RootTransform"
+                                 Storyboard.TargetProperty="TranslateY"
+                                 From="-40" To="0" Duration="0:0:0.45">
+                    <DoubleAnimation.EasingFunction>
+                        <ElasticEase EasingMode="EaseOut" Oscillations="1" Springiness="5" />
+                    </DoubleAnimation.EasingFunction>
+                </DoubleAnimation>
+            </Storyboard>
+        </Grid.Resources>
+    </Grid>
+</Window>
