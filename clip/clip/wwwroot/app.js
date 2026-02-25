@@ -204,8 +204,7 @@ function renderList() {
         return `
             <div class="card ${isSelected ? 'selected' : ''} ${hasImage ? 'card-has-image' : ''}" 
                  data-idx="${idx}" 
-                 onclick="onCardClick(${idx})" 
-                 ondblclick="onCardDoubleClick(${idx})">
+                 onclick="onCardClick(${idx})">
                 ${shortcut ? `<span class="card-shortcut">${shortcut}</span>` : ''}
                 <div class="card-actions">
                     <button class="card-action-btn" onclick="event.stopPropagation(); toggleFavorite(${idx})" title="收藏">
@@ -292,14 +291,10 @@ function escapeHtml(str) {
 
 // ── Card Interactions ──
 
-function onCardClick(idx) {
-    // Single click = select/highlight only
+async function onCardClick(idx) {
+    // Single click = select and paste
     selectedIndex = idx;
     renderList();
-}
-
-async function onCardDoubleClick(idx) {
-    // Double click = paste and close
     await pasteItem(idx);
 }
 

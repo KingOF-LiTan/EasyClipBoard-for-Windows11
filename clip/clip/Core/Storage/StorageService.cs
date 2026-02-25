@@ -125,7 +125,7 @@ public sealed class StorageService : IDisposable
 
             // 处理敏感加密
             string? textToSave = draft.Text;
-            bool isSensitive = draft.IsSensitive || (draft.Tag == ClipboardItemTag.Important && draft.Type == ClipboardItemType.Text);
+            bool isSensitive = draft.IsSensitive;
             if (isSensitive && !string.IsNullOrEmpty(textToSave))
             {
                 textToSave = Security.EncryptionService.Encrypt(textToSave);
