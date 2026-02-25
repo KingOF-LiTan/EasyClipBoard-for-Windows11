@@ -426,6 +426,12 @@ function setupKeyboardShortcuts() {
             if (isSearchInput) {
                 document.activeElement.blur();
             }
+
+            // If nothing selected but items exist, default to first item
+            if (selectedIndex < 0 && items.length > 0) {
+                selectedIndex = 0;
+            }
+
             if (selectedIndex >= 0 && selectedIndex < items.length && items.length > 0) {
                 await pasteItem(selectedIndex);
             }
@@ -689,14 +695,4 @@ async function hideWindowAnimated() {
 window.__on_window_shown = function () {
     playShowAnimation();
     refreshList();
-
-    // Explicitly focus the search input so keyboard navigation works immediately
-    setTimeout(() => {
-        const searchInput = document.getElementById('search-input');
-        if (searchInput && currentTab !== 'favorites' && !vaultOpen && !settingsOpen) {
-            searchInput.focus();
-        } else {
-            document.body.focus();
-        }
-    }, 50);
 };

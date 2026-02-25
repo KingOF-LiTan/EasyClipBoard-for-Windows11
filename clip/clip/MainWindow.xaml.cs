@@ -193,8 +193,6 @@ public sealed partial class MainWindow : Window
             _appWindow.Show();
             IsShowing = true;
             Native.Win32Helper.SetForegroundWindow(_hwnd);
-            Native.Win32Helper.SetActiveWindow(_hwnd);
-            Native.Win32Helper.SetFocus(_hwnd);
         }
 
         // Trigger show animation and notify frontend to refresh
@@ -203,9 +201,7 @@ public sealed partial class MainWindow : Window
             await _bridge.PushClipboardUpdateAsync();
             if (WebView.CoreWebView2 != null)
             {
-                // In WinUI 3 + WebView2, focus must be programmatic and we often need to force the document to focus.
-                WebView.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
-                try { await WebView.CoreWebView2.ExecuteScriptAsync("window.focus(); document.body.focus(); window.__on_window_shown();"); } catch { }
+                try { await WebView.CoreWebView2.ExecuteScriptAsync("window.__on_window_shown()"); } catch { }
             }
         }
     }
