@@ -81,7 +81,7 @@
     --segment-active-text: #e0e0e0;
     --search-bg: rgba(255, 255, 255, 0.06);
     --search-border: rgba(255, 255, 255, 0.1);
-    --panel-bg: rgba(24, 24, 27, 0.95);
+    --panel-bg: rgba(30, 30, 35, 0.95);
     --divider: rgba(255, 255, 255, 0.06);
     --btn-hover: rgba(255, 255, 255, 0.08);
     --shortcut-bg: rgba(255, 255, 255, 0.06);
@@ -98,6 +98,7 @@ body {
     background: transparent;
     overflow: hidden;
     user-select: none;
+    border-radius: 12px;
 }
 
 input,
@@ -188,6 +189,9 @@ body.anim-hide {
     padding: 12px;
     padding-top: 0;
     gap: 10px;
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    background-color: var(--bg-overlay);
 }
 
 /* Drag handle at the top */
@@ -201,14 +205,6 @@ body.anim-hide {
     flex-shrink: 0;
 }
 
-#drag-handle::after {
-    content: '';
-    width: 36px;
-    height: 4px;
-    background: var(--text-muted);
-    opacity: 0.4;
-    border-radius: 2px;
-}
 
 /* ── Segmented Control ── */
 #nav-bar {

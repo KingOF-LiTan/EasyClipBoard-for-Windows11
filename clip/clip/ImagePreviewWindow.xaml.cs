@@ -49,8 +49,8 @@ public sealed partial class ImagePreviewWindow : Window
         // Calculate size based on image size vs screen size
         var displayArea = Microsoft.UI.Windowing.DisplayArea.GetFromWindowId(windowId, Microsoft.UI.Windowing.DisplayAreaFallback.Nearest);
         var workArea = displayArea.WorkArea;
-        int maxWidth = (int)(workArea.Width * 0.8);
-        int maxHeight = (int)(workArea.Height * 0.8);
+        int maxWidth = (int)(workArea.Width * 0.95);
+        int maxHeight = (int)(workArea.Height * 0.95);
 
         int targetWidth = defaultWidth > 0 ? defaultWidth : 800;
         int targetHeight = defaultHeight > 0 ? defaultHeight : 600;

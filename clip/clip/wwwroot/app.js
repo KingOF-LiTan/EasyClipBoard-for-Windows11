@@ -72,25 +72,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function setupDragHandle() {
-    let dragLocked = false;
-    // Drag on blank areas
-    // Strictly excludes any interactive element (including icon children inside buttons)
-    document.addEventListener('mousedown', (e) => {
-        if (e.button !== 0) return;
-        const el = e.target;
-
-        // Block if the clicked element OR any ancestor is interactive
-        if (el.closest('button, input, select, textarea, a, [role="button"], .card, .vault-item, .setting-group, #preview-modal, #preview-content')) return;
-
-        // Fire drag on any non-interactive element
-        if (!dragLocked) {
-            e.preventDefault();
-            dragLocked = true;
-            sendMessage('startDrag').finally(() => {
-                setTimeout(() => { dragLocked = false; }, 300); // 300ms debounce
-            });
-        }
-    });
+    // Left empty as requested by user to disable custom JS drag
 }
 
 async function loadSettings() {
