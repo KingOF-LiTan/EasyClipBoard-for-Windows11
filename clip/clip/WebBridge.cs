@@ -66,6 +66,7 @@ public sealed class WebBridge
                 "selectBackgroundImage" => await SelectBackgroundImageAsync(),
                 "getImageThumbnail" => await GetImageThumbnailAsync(root),
                 "getFullText" => await GetFullTextAsync(root),
+                "showImagePreviewWindow" => await ShowImagePreviewWindowAsync(root),
                 "getAutostart" => GetAutostart(),
                 "setAutostart" => SetAutostart(root),
                 "setMaskOpacity" => SetMaskOpacity(root),
@@ -476,6 +477,27 @@ public sealed class WebBridge
         {
             return new { success = false };
         }
+    }
+
+    private async Task<object> ShowImagePreviewWindowAsync(JsonElement root)
+    {
+        if (!root.TryGetProperty("id", out var idProp)) return new { success = false };
+        long id = idProp.GetInt64();
+        var entity = await _storage.GetItemByIdAsync(id);
+        if (entity == null || entity.Type != ClipboardItemType.Image || string.IsNullOrEmpty(entity.ImageBlobPath)) return new { success = false };
+
+        string? fullPath = _storage.GetBlobFullPath(entity.ImageBlobPath);
+        if (string.IsNullOrEmpty(fullPath) || !File.Exists(fullPath)) return new { success = false };
+
+        if (MainWindow.Current != null && MainWindow.Current.DispatcherQueue != null)
+        {
+            MainWindow.Current.DispatcherQueue.TryEnqueue(() => 
+            {
+                new ImagePreviewWindow(id, fullPath, entity.ImageWidth ?? 0, entity.ImageHeight ?? 0);
+            });
+        }
+        
+        return new { success = true };
     }
 
     private async Task<object> GetFullTextAsync(JsonElement root)

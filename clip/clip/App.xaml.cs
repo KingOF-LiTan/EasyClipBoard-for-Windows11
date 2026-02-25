@@ -203,6 +203,24 @@ namespace clip
             }
         }
 
+        public async void TriggerPaste(long id)
+        {
+            if (_storage == null) return;
+            var entity = await _storage.GetItemByIdAsync(id);
+            if (entity == null) return;
+
+            SetSuppressFlag();
+            await Core.Clipboard.ClipboardWriter.WriteAsync(entity, _storage);
+            
+            _uiDispatcher?.TryEnqueue(() => 
+            {
+                if (_mainWindow != null && _mainWindow.IsShowing)
+                {
+                    _mainWindow.HideWindow();
+                }
+            });
+        }
+
         private void ShowSettings()
         {
             Win32Helper.GetCursorPos(out var pt);

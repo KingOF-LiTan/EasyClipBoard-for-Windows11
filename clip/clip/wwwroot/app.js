@@ -342,27 +342,15 @@ function showPreview(idx) {
     const item = items[idx];
     if (!item) return;
 
+    if (item.hasImage || item.type === 'image') {
+        sendMessage('showImagePreviewWindow', { id: item.id });
+        return;
+    }
+
     const modal = document.getElementById('preview-modal');
     const content = document.getElementById('preview-content');
 
-    const cachedImg = item.hasImage ? thumbnailCache[item.id] : null;
-    if (item.hasImage && cachedImg) {
-        content.innerHTML = `<img src="${cachedImg}" alt="preview">`;
-    } else if (item.hasImage && !cachedImg) {
-        // Not in cache yet - fetch it
-        content.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-muted)">加载中...</div>';
-        modal.classList.remove('hidden');
-        sendMessage('getImageThumbnail', { id: item.id }).then(res => {
-            if (res && res.success && res.base64) {
-                thumbnailCache[item.id] = res.base64;
-                document.getElementById('preview-content').innerHTML = `<img src="${res.base64}" alt="preview">`;
-                // Also update any live placeholder on the list
-                const live = document.querySelector(`.card-image-placeholder[data-id="${item.id}"]`);
-                if (live) replacePlaceholder(live, res.base64, idx);
-            }
-        });
-        return;
-    } else if (item.type === 'text') {
+    if (item.type === 'text') {
         content.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-muted)">加载中...</div>';
         modal.classList.remove('hidden');
         sendMessage('getFullText', { id: item.id }).then(res => {
