@@ -65,6 +65,7 @@ public sealed class WebBridge
                 "hideWindow" => HideWindowImmediate(),
                 "selectBackgroundImage" => await SelectBackgroundImageAsync(),
                 "getImageThumbnail" => await GetImageThumbnailAsync(root),
+                "getFullText" => await GetFullTextAsync(root),
                 "getAutostart" => GetAutostart(),
                 "setAutostart" => SetAutostart(root),
                 "setMaskOpacity" => SetMaskOpacity(root),
@@ -475,6 +476,34 @@ public sealed class WebBridge
         {
             return new { success = false };
         }
+    }
+
+    private async Task<object> GetFullTextAsync(JsonElement root)
+    {
+        if (!root.TryGetProperty("id", out var idProp)) return new { success = false };
+        long id = idProp.GetInt64();
+        var entity = await _storage.GetItemByIdAsync(id);
+        if (entity == null) return new { success = false };
+
+        if (entity.IsSensitive)
+        {
+            return new { success = true, text = "********" };
+        }
+        else if (entity.Type == ClipboardItemType.Text)
+        {
+            return new { success = true, text = entity.TextContent ?? "" };
+        }
+        else if (entity.Type == ClipboardItemType.Files && !string.IsNullOrEmpty(entity.FilePathsJson))
+        {
+            try
+            {
+                var paths = JsonSerializer.Deserialize<List<string>>(entity.FilePathsJson);
+                if (paths is { Count: > 0 })
+                    return new { success = true, text = string.Join("\n", paths) };
+            }
+            catch { return new { success = true, text = "[文件]" }; }
+        }
+        return new { success = false };
     }
 
     private static string FormatTimeAgo(DateTimeOffset utc)

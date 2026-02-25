@@ -54,6 +54,14 @@ console.error = function (...args) {
     originalConsoleError.apply(console, args);
 };
 
+window.addEventListener('error', function (e) {
+    alert("JS Error: " + e.message + " at " + e.filename + ":" + e.lineno);
+});
+
+window.addEventListener('unhandledrejection', function (e) {
+    alert("Unhandled Promise Rejection: " + (e.reason && e.reason.message ? e.reason.message : e.reason));
+});
+
 // ── Initialization ──
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -72,7 +80,7 @@ function setupDragHandle() {
         const el = e.target;
 
         // Block if the clicked element OR any ancestor is interactive
-        if (el.closest('button, input, select, textarea, a, [role="button"], .card, .vault-item, .setting-group')) return;
+        if (el.closest('button, input, select, textarea, a, [role="button"], .card, .vault-item, .setting-group, #preview-modal, #preview-content')) return;
 
         // Fire drag on any non-interactive element
         if (!dragLocked) {
@@ -99,15 +107,17 @@ async function loadSettings() {
     }
 
     const maskSlider = document.getElementById('mask-slider');
-    maskSlider.value = settings.maskOpacity;
+    if (maskSlider) maskSlider.value = settings.maskOpacity;
     updateMaskVisual(settings.maskOpacity);
 
     // Wire autostart toggle
     const autostartToggle = document.getElementById('autostart-toggle');
-    autostartToggle.checked = !!settings.autostart;
-    autostartToggle.addEventListener('change', () => {
-        sendMessage('setAutostart', { enabled: autostartToggle.checked });
-    });
+    if (autostartToggle) {
+        autostartToggle.checked = !!settings.autostart;
+        autostartToggle.addEventListener('change', () => {
+            sendMessage('setAutostart', { enabled: autostartToggle.checked });
+        });
+    }
 }
 
 // ── Tab Switching ──
@@ -352,6 +362,17 @@ function showPreview(idx) {
             }
         });
         return;
+    } else if (item.type === 'text') {
+        content.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-muted)">加载中...</div>';
+        modal.classList.remove('hidden');
+        sendMessage('getFullText', { id: item.id }).then(res => {
+            if (res && res.success) {
+                document.getElementById('preview-content').innerHTML = `<pre style="white-space: pre-wrap; word-break: break-word; font-family: inherit;">${escapeHtml(res.text || '[空]')}</pre>`;
+            } else {
+                document.getElementById('preview-content').innerHTML = `<pre>${escapeHtml(item.preview || '[空]')}</pre>`;
+            }
+        });
+        return;
     } else {
         content.innerHTML = `<pre>${escapeHtml(item.preview || '[空]')}</pre>`;
     }
@@ -384,8 +405,10 @@ function setupKeyboardShortcuts() {
                 document.getElementById('confirm-modal').classList.add('hidden');
                 return;
             }
-            if (settingsOpen) { toggleSettings(); return; }
-            if (vaultOpen) { toggleVault(); return; }
+            const isSettingsOpen = !document.getElementById('settings-panel').classList.contains('hidden');
+            const isVaultOpen = !document.getElementById('vault-panel').classList.contains('hidden');
+            if (isSettingsOpen) { toggleSettings(); return; }
+            if (isVaultOpen) { toggleVault(); return; }
             sendMessage('hideWindow');
             return;
         }
