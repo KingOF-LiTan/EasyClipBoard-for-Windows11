@@ -485,6 +485,10 @@ function changeTheme(value) {
     currentTheme = value;
     document.body.setAttribute('data-theme', value);
     sendMessage('setTheme', { theme: value === 'dark' ? 1 : 2 });
+
+    // Re-evaluate mask visual if theme changes
+    const slider = document.getElementById('mask-slider');
+    updateMaskVisual(slider ? slider.value : 0.6);
 }
 
 async function pickBackground() {
@@ -499,12 +503,20 @@ function clearBackground() {
     bg.classList.remove('active');
     bg.style.backgroundImage = '';
     sendMessage('clearBackground');
+
+    // Reset mask visual to default CSS root variables for pure color mode
+    const slider = document.getElementById('mask-slider');
+    updateMaskVisual(slider ? slider.value : 0.6);
 }
 
 function setBgImage(base64Data) {
     const bgLayer = document.getElementById('bg-layer');
     bgLayer.style.backgroundImage = `url('${base64Data}')`;
     bgLayer.classList.add('active');
+
+    // Apply mask visual based on slider
+    const slider = document.getElementById('mask-slider');
+    updateMaskVisual(slider ? slider.value : 0.6);
 }
 
 let maskSaveTimeout;
@@ -516,10 +528,19 @@ function changeMaskOpacity(value) {
 }
 
 function updateMaskVisual(opacity) {
-    if (currentTheme === 'dark') {
-        document.documentElement.style.setProperty('--bg-overlay', `rgba(0, 0, 0, ${opacity})`);
+    const isImageActive = document.getElementById('bg-layer').classList.contains('active');
+
+    if (isImageActive) {
+        // In image mode, we apply a black/white mask over the image based on theme
+        if (currentTheme === 'dark') {
+            document.documentElement.style.setProperty('--bg-overlay', `rgba(0, 0, 0, ${opacity})`);
+        } else {
+            document.documentElement.style.setProperty('--bg-overlay', `rgba(255, 255, 255, ${opacity})`);
+        }
     } else {
-        document.documentElement.style.setProperty('--bg-overlay', `rgba(255, 255, 255, ${opacity})`);
+        // In pure color mode (Acrylic), we remove the inline JS override
+        // so the CSS :root themes (--bg-overlay) take over.
+        document.documentElement.style.removeProperty('--bg-overlay');
     }
 }
 
