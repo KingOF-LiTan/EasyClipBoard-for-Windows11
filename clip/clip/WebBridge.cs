@@ -362,33 +362,54 @@ public sealed class WebBridge
 
     private async Task<object> SelectBackgroundImageAsync()
     {
-        var picker = new Windows.Storage.Pickers.FileOpenPicker();
-        picker.ViewMode = Windows.Storage.Pickers.PickerViewMode.Thumbnail;
-        picker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.PicturesLibrary;
-        picker.FileTypeFilter.Add(".jpg");
-        picker.FileTypeFilter.Add(".jpeg");
-        picker.FileTypeFilter.Add(".png");
-        picker.FileTypeFilter.Add(".webp");
+        var tcs = new TaskCompletionSource<object>();
 
-        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(MainWindow.Current);
-        WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+        if (MainWindow.Current?.DispatcherQueue == null)
+            return new { success = false };
 
-        var file = await picker.PickSingleFileAsync();
-        if (file != null)
+        MainWindow.Current.DispatcherQueue.TryEnqueue(async () =>
         {
-            var localFolder = Windows.Storage.ApplicationData.Current.LocalFolder;
-            var copiedFile = await file.CopyAsync(localFolder, file.Name, Windows.Storage.NameCollisionOption.GenerateUniqueName);
-            var settings = Windows.Storage.ApplicationData.Current.LocalSettings;
-            settings.Values["ui_background_path"] = copiedFile.Path;
+            try
+            {
+                var picker = new Windows.Storage.Pickers.FileOpenPicker();
+                picker.ViewMode = Windows.Storage.Pickers.PickerViewMode.Thumbnail;
+                picker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.PicturesLibrary;
+                picker.FileTypeFilter.Add(".jpg");
+                picker.FileTypeFilter.Add(".jpeg");
+                picker.FileTypeFilter.Add(".png");
+                picker.FileTypeFilter.Add(".webp");
 
-            byte[] bytes = File.ReadAllBytes(copiedFile.Path);
-            string ext = copiedFile.FileType.TrimStart('.').ToLower();
-            if (ext == "jpg") ext = "jpeg";
-            string base64 = $"data:image/{ext};base64,{Convert.ToBase64String(bytes)}";
+                var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(MainWindow.Current);
+                WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
 
-            return new { success = true, base64 = base64 };
-        }
-        return new { success = false };
+                var file = await picker.PickSingleFileAsync();
+                if (file != null)
+                {
+                    var localFolder = Windows.Storage.ApplicationData.Current.LocalFolder;
+                    var copiedFile = await file.CopyAsync(localFolder, file.Name, Windows.Storage.NameCollisionOption.GenerateUniqueName);
+                    var settings = Windows.Storage.ApplicationData.Current.LocalSettings;
+                    settings.Values["ui_background_path"] = copiedFile.Path;
+
+                    byte[] bytes = File.ReadAllBytes(copiedFile.Path);
+                    string ext = copiedFile.FileType.TrimStart('.').ToLower();
+                    if (ext == "jpg") ext = "jpeg";
+                    string base64 = $"data:image/{ext};base64,{Convert.ToBase64String(bytes)}";
+
+                    tcs.TrySetResult(new { success = true, base64 = base64 });
+                }
+                else
+                {
+                    tcs.TrySetResult(new { success = false });
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[WebBridge] Picker error: {ex.Message}");
+                tcs.TrySetResult(new { success = false });
+            }
+        });
+
+        return await tcs.Task;
     }
 
     private object MapEntity(ClipboardItemEntity e)
