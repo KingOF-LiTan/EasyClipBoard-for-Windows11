@@ -151,6 +151,10 @@ async function refreshList() {
         items = items.filter(i => i.type === typeFilter);
     }
 
+    if (items.length > 0 && selectedIndex < 0) {
+        selectedIndex = 0;
+    }
+
     renderList();
 }
 
@@ -368,12 +372,8 @@ function closePreview() {
 
 function setupKeyboardShortcuts() {
     document.addEventListener('keydown', async (e) => {
-        // Ctrl+F -> focus search
-        if (e.ctrlKey && e.key === 'f') {
-            e.preventDefault();
-            document.getElementById('search-input').focus();
-            return;
-        }
+        const isSearchInput = document.activeElement?.id === 'search-input';
+        const inInput = document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA' || document.activeElement?.tagName === 'SELECT';
 
         // Escape -> close panels/preview or hide window
         if (e.key === 'Escape') {
@@ -381,32 +381,31 @@ function setupKeyboardShortcuts() {
                 closePreview();
                 return;
             }
+            if (document.getElementById('vault-add-modal') && !document.getElementById('vault-add-modal').classList.contains('hidden')) {
+                closeVaultAddModal();
+                return;
+            }
+            if (document.getElementById('confirm-modal') && !document.getElementById('confirm-modal').classList.contains('hidden')) {
+                document.getElementById('confirm-modal').classList.add('hidden');
+                return;
+            }
             if (settingsOpen) { toggleSettings(); return; }
             if (vaultOpen) { toggleVault(); return; }
+            sendMessage('hideWindow');
             return;
         }
 
-        // Don't handle shortcuts if typing in input (except Enter and Escape)
-        const inInput = document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA' || document.activeElement?.tagName === 'SELECT';
-        if (inInput) {
-            // Enter in search: blur search and select first item
-            if (e.key === 'Enter' && document.activeElement.id === 'search-input') {
-                e.preventDefault();
-                document.activeElement.blur();
-                if (selectedIndex < 0 && items.length > 0) {
-                    selectedIndex = 0;
-                    renderList();
-                    scrollToSelected();
-                } else if (selectedIndex >= 0) {
-                    await pasteItem(selectedIndex);
-                }
-            }
-            return;
-        }
-
-        // Arrow up/down: navigate
-        if (e.key === 'ArrowDown') {
+        // Ctrl+F -> focus search
+        if (e.ctrlKey && e.key.toLowerCase() === 'f') {
             e.preventDefault();
+            document.getElementById('search-input').focus();
+            return;
+        }
+
+        // Arrow up/down: navigate list everywhere
+        if (e.key === 'ArrowDown') {
+            if (inInput && !isSearchInput) return; // Allow only in search input, not vault/settings input
+            e.preventDefault(); // Prevent cursor moving in search input
             if (selectedIndex < items.length - 1) {
                 selectedIndex++;
                 renderList();
@@ -415,6 +414,7 @@ function setupKeyboardShortcuts() {
             return;
         }
         if (e.key === 'ArrowUp') {
+            if (inInput && !isSearchInput) return; // Allow only in search input, not vault/settings input
             e.preventDefault();
             if (selectedIndex > 0) {
                 selectedIndex--;
@@ -424,39 +424,33 @@ function setupKeyboardShortcuts() {
             return;
         }
 
-        // Ctrl+F: Focus search
-        if (e.ctrlKey && e.key.toLowerCase() === 'f') {
-            e.preventDefault();
-            document.getElementById('search-input').focus();
-            return;
-        }
-
-        // Enter: paste selected or first item if searching
+        // Enter: paste selected
         if (e.key === 'Enter') {
-            if (document.activeElement === document.getElementById('search-input')) {
-                e.preventDefault();
-                document.getElementById('search-input').blur();
-                if (items.length > 0) {
-                    await pasteItem(0);
-                }
-            } else if (selectedIndex >= 0) {
-                e.preventDefault();
+            if (inInput && !isSearchInput) return; // Typing enter in textarea or vault input = normal behavior
+            e.preventDefault();
+            if (isSearchInput) {
+                document.activeElement.blur();
+            }
+            if (selectedIndex >= 0 && selectedIndex < items.length && items.length > 0) {
                 await pasteItem(selectedIndex);
             }
             return;
         }
 
+        // If inside any input at this point, do not handle space or quick paste
+        if (inInput) return;
+
         // Space: preview selected
-        if (e.key === ' ' && selectedIndex >= 0 && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+        if (e.key === ' ' && selectedIndex >= 0) {
             e.preventDefault();
             showPreview(selectedIndex);
             return;
         }
 
         // Number keys 1-9: quick paste
-        if (e.key >= '1' && e.key <= '9' && document.activeElement.tagName !== 'INPUT') {
+        if (e.key >= '1' && e.key <= '9') {
             const idx = parseInt(e.key) - 1;
-            if (idx < items.length) {
+            if (idx >= 0 && idx < items.length) {
                 e.preventDefault();
                 await pasteItem(idx);
             }
