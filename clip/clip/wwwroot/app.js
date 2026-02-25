@@ -21,13 +21,16 @@ function sendMessage(action, params = {}) {
         pendingRequests[requestId] = resolve;
         const msg = { action, ...params, requestId };
         window.chrome.webview.postMessage(msg);
-        // Timeout safety
-        setTimeout(() => {
-            if (pendingRequests[requestId]) {
-                delete pendingRequests[requestId];
-                resolve(null);
-            }
-        }, 5000);
+
+        // Timeout safety (skip for file picker which requires user interaction)
+        if (action !== 'selectBackgroundImage') {
+            setTimeout(() => {
+                if (pendingRequests[requestId]) {
+                    delete pendingRequests[requestId];
+                    resolve(null);
+                }
+            }, 5000);
+        }
     });
 }
 
