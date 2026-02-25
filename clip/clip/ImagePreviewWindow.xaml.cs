@@ -79,6 +79,8 @@ public sealed partial class ImagePreviewWindow : Window
 
         // Start animation
         _ = PlayShowAnimationAsync();
+
+        Activate();
     }
 
     private void Grid_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
