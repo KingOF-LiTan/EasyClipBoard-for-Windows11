@@ -585,8 +585,9 @@ function getSensitiveIcon(type) {
 async function copySecret(id) {
     const result = await sendMessage('decryptSecret', { id });
     if (result?.text) {
-        // Copy via C# bridge (paste action)
-        await sendMessage('paste', { id });
+        // Copy via C# bridge (pasteText action)
+        await sendMessage('pasteText', { text: result.text });
+        await sendMessage('hideWindow');
     }
 }
 

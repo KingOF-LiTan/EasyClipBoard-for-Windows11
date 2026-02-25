@@ -52,6 +52,7 @@ public sealed class WebBridge
                 "updateTag" => await UpdateTagAsync(root),
                 "clearHistory" => await ClearHistoryAsync(),
                 "getSensitiveItems" => await GetSensitiveItemsAsync(root),
+                "pasteText" => await PasteTextAsync(root),
                 "addSecret" => await AddSecretAsync(root),
                 "deleteSecret" => await DeleteSecretAsync(root),
                 "decryptSecret" => await DecryptSecretAsync(root),
@@ -114,6 +115,15 @@ public sealed class WebBridge
         if (entity == null) return new { success = false };
         _onBeforeClipboardWrite();
         await ClipboardWriter.WriteAsync(entity, _storage);
+        return new { success = true };
+    }
+
+    private async Task<object> PasteTextAsync(JsonElement root)
+    {
+        string text = root.TryGetProperty("text", out var t) ? t.GetString() ?? "" : "";
+        if (string.IsNullOrEmpty(text)) return new { success = false };
+        _onBeforeClipboardWrite();
+        await ClipboardWriter.WriteTextAsync(text);
         return new { success = true };
     }
 

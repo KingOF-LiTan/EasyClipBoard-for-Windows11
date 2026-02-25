@@ -201,6 +201,7 @@ public sealed partial class MainWindow : Window
             await _bridge.PushClipboardUpdateAsync();
             if (WebView.CoreWebView2 != null)
             {
+                WebView.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
                 try { await WebView.CoreWebView2.ExecuteScriptAsync("window.__on_window_shown()"); } catch { }
             }
         }

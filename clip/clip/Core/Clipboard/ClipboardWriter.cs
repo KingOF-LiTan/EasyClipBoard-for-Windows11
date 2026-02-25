@@ -71,4 +71,12 @@ public static class ClipboardWriter
 
         Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dp);
     }
+
+    public static Task WriteTextAsync(string text)
+    {
+        var dp = new DataPackage();
+        dp.SetText(text);
+        Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dp);
+        return Task.CompletedTask;
+    }
 }
