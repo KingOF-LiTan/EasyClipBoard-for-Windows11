@@ -48,4 +48,7 @@ public sealed class ClipboardItemEntity
 
     /// <summary>用户自定义的别名/备注名</summary>
     public string? Alias { get; set; }
+
+    /// <summary>备注</summary>
+    public string? Remark { get; set; }
 }

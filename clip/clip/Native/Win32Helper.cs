@@ -94,5 +94,33 @@ public static partial class Win32Helper
 
         return 1.0;
     }
-}
 
+    // ── DWM attributes (窗口边框/暗色模式) ──
+
+    // DWMWA_USE_IMMERSIVE_DARK_MODE (Win10 1809+ 通常为 20; Win10 1903+ 有时为 19)
+    public const int DWMWA_USE_IMMERSIVE_DARK_MODE_20 = 20;
+    public const int DWMWA_USE_IMMERSIVE_DARK_MODE_19 = 19;
+    public const int DWMWA_BORDER_COLOR = 34;
+    public const uint DWM_BORDER_COLOR_NONE = 0xFFFFFFFE;
+
+    [DllImport("dwmapi.dll", PreserveSig = true)]
+    public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
+
+    [DllImport("dwmapi.dll", PreserveSig = true)]
+    public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref uint attrValue, int attrSize);
+
+    // ── Window drag support ──
+
+    [DllImport("user32.dll")]
+    public static extern bool ReleaseCapture();
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    public static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    public static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+
+    // ── Windows 11 corner rounding ──
+    public const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
+    public const int DWMWCP_DONOTROUND = 1;
+}

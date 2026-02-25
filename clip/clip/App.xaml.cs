@@ -298,11 +298,11 @@ namespace clip
                 System.Diagnostics.Debug.WriteLine($"[Storage] 已保存条目, id={id}");
 
                 // 刷新 UI
-                _uiDispatcher?.TryEnqueue(async () =>
+                _uiDispatcher?.TryEnqueue(() =>
                 {
                     if (_mainWindow != null)
                     {
-                        await _mainWindow.RefreshList();
+                        _mainWindow.NotifyClipboardChanged();
                         System.Diagnostics.Debug.WriteLine("[UI] 列表刷新请求已发出");
                     }
                 });

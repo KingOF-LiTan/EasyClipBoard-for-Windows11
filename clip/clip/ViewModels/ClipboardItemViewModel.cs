@@ -63,6 +63,7 @@ public sealed class ClipboardItemViewModel : System.ComponentModel.INotifyProper
             {
                 _entity.Alias = value;
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(DisplayName)); // 确保显示名称同步刷新
                 // 自动保存别名更改
                 _ = _storage.UpdateItemAliasAsync(Id, value);
             }
@@ -86,10 +87,10 @@ public sealed class ClipboardItemViewModel : System.ComponentModel.INotifyProper
 
     public Microsoft.UI.Xaml.Visibility IsSelectedVisibility => IsSelected ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
 
-    public double ImportantOpacity => Tag == ClipboardItemTag.Important ? 1.0 : 0.3;
-    public double FrequentOpacity => Tag == ClipboardItemTag.Frequent ? 1.0 : 0.3;
-    public double ScriptOpacity => Tag == ClipboardItemTag.Script ? 1.0 : 0.3;
-    public double TemporaryOpacity => Tag == ClipboardItemTag.Temporary ? 1.0 : 0.3;
+    public double ImportantOpacity => Tag == ClipboardItemTag.Important ? 1.0 : 0.7;
+    public double FrequentOpacity => Tag == ClipboardItemTag.Frequent ? 1.0 : 0.7;
+    public double ScriptOpacity => Tag == ClipboardItemTag.Script ? 1.0 : 0.7;
+    public double TemporaryOpacity => Tag == ClipboardItemTag.Temporary ? 1.0 : 0.7;
 
     public Brush ImportantBrush => Tag == ClipboardItemTag.Important ? (Brush)Application.Current.Resources["SystemFillColorCriticalBrush"] : (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"];
     public Brush FrequentBrush => Tag == ClipboardItemTag.Frequent ? (Brush)Application.Current.Resources["SystemFillColorSuccessBrush"] : (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"];
@@ -108,10 +109,10 @@ public sealed class ClipboardItemViewModel : System.ComponentModel.INotifyProper
 
     public Brush TagBackground => Tag switch
     {
-        ClipboardItemTag.Important => new SolidColorBrush(Windows.UI.Color.FromArgb(40, 255, 0, 0)),
-        ClipboardItemTag.Frequent => new SolidColorBrush(Windows.UI.Color.FromArgb(40, 0, 255, 0)),
-        ClipboardItemTag.Script => new SolidColorBrush(Windows.UI.Color.FromArgb(40, 0, 120, 215)),
-        _ => new SolidColorBrush(Windows.UI.Color.FromArgb(20, 128, 128, 128))
+        ClipboardItemTag.Important => new SolidColorBrush(Windows.UI.Color.FromArgb(80, 255, 0, 0)),
+        ClipboardItemTag.Frequent => new SolidColorBrush(Windows.UI.Color.FromArgb(80, 0, 255, 0)),
+        ClipboardItemTag.Script => new SolidColorBrush(Windows.UI.Color.FromArgb(80, 0, 120, 215)),
+        _ => new SolidColorBrush(Windows.UI.Color.FromArgb(60, 128, 128, 128))
     };
 
     public Brush TagForeground => Tag switch
@@ -187,8 +188,8 @@ public sealed class ClipboardItemViewModel : System.ComponentModel.INotifyProper
         }
     }
 
-    /// <summary>显示名称：优先显示别名，无别名显示"内容预览"</summary>
-    public string DisplayName => !string.IsNullOrEmpty(Alias) ? Alias : "内容预览";
+    /// <summary>显示名称：优先显示别名，其次账号，无别名显示"未命名"</summary>
+    public string DisplayName => !string.IsNullOrEmpty(Alias) ? Alias : (!string.IsNullOrEmpty(Username) ? Username : "未命名");
 
     // ── 敏感信息展示 ──
 

@@ -29,14 +29,29 @@ public sealed class StorageService : IDisposable
         Directory.CreateDirectory(_blobDir);
     }
 
+    public string DbPath => _dbPath;
+
     public async Task InitAsync()
     {
         try
         {
+            // 检查是否有恢复文件
+            var restorePath = _dbPath + ".restore";
+            if (File.Exists(restorePath))
+            {
+                try
+                {
+                    File.Move(restorePath, _dbPath, true);
+                    System.Diagnostics.Debug.WriteLine("[Storage] 数据库已从备份恢复");
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[Storage] 恢复失败: {ex.Message}");
+                }
+            }
+
             _conn = new SqliteConnection($"Data Source={_dbPath}");
             await _conn.OpenAsync();
-            System.Diagnostics.Debug.WriteLine($"[Storage] 数据库已连接: {_dbPath}");
-
             await ExecAsync("PRAGMA journal_mode=WAL;");
             await ExecAsync(@"
                 CREATE TABLE IF NOT EXISTS items (
@@ -62,6 +77,7 @@ public sealed class StorageService : IDisposable
             try { await ExecAsync("ALTER TABLE items ADD COLUMN sensitive_type INTEGER NOT NULL DEFAULT 0;"); } catch { }
             try { await ExecAsync("ALTER TABLE items ADD COLUMN username TEXT;"); } catch { }
             try { await ExecAsync("ALTER TABLE items ADD COLUMN alias TEXT;"); } catch { }
+            try { await ExecAsync("ALTER TABLE items ADD COLUMN remark TEXT;"); } catch { }
 
             await ExecAsync("CREATE INDEX IF NOT EXISTS idx_items_captured ON items(captured_at);");
             await ExecAsync("CREATE INDEX IF NOT EXISTS idx_items_favorite ON items(is_favorite);");
@@ -109,15 +125,15 @@ public sealed class StorageService : IDisposable
 
             // 处理敏感加密
             string? textToSave = draft.Text;
-            bool isSensitive = draft.isSensitive || (draft.Tag == ClipboardItemTag.Important && draft.Type == ClipboardItemType.Text);
+            bool isSensitive = draft.IsSensitive || (draft.Tag == ClipboardItemTag.Important && draft.Type == ClipboardItemType.Text);
             if (isSensitive && !string.IsNullOrEmpty(textToSave))
             {
                 textToSave = Security.EncryptionService.Encrypt(textToSave);
             }
 
             var sql = @"
-                INSERT INTO items (type, captured_at, tag, is_sensitive, sensitive_type, text_content, username, image_blob, image_hash, image_w, image_h, file_paths, alias)
-                VALUES (@type, @cap, @tag, @sens, @stype, @txt, @user, @blob, @hash, @iw, @ih, @fp, @alias);
+                INSERT INTO items (type, captured_at, tag, is_sensitive, sensitive_type, text_content, username, remark, image_blob, image_hash, image_w, image_h, file_paths, alias)
+                VALUES (@type, @cap, @tag, @sens, @stype, @txt, @user, @remark, @blob, @hash, @iw, @ih, @fp, @alias);
                 SELECT last_insert_rowid();";
 
             var id = await ScalarInternalAsync(sql,
@@ -128,6 +144,7 @@ public sealed class StorageService : IDisposable
                 ("@stype", (int)draft.SensitiveType),
                 ("@txt", (object?)textToSave ?? DBNull.Value),
                 ("@user", (object?)draft.Username ?? DBNull.Value),
+                ("@remark", (object?)draft.Remark ?? DBNull.Value),
                 ("@blob", (object?)blobRelPath ?? DBNull.Value),
                 ("@hash", (object?)hash ?? DBNull.Value),
                 ("@iw", (object?)draft.ImageWidth ?? DBNull.Value),
@@ -280,12 +297,12 @@ public sealed class StorageService : IDisposable
     /// <summary>
     /// 手动添加敏感条目
     /// </summary>
-    public async Task<long> AddManualSecretAsync(string alias, string content, SensitiveType sensitiveType, string? username = null)
+    public async Task<long> AddManualSecretAsync(string alias, string content, SensitiveType sensitiveType, string? username = null, string? remark = null)
     {
         var encrypted = Security.EncryptionService.Encrypt(content);
         var sql = @"
-            INSERT INTO items (type, captured_at, tag, is_sensitive, sensitive_type, text_content, username, alias)
-            VALUES (@type, @cap, @tag, 1, @stype, @txt, @user, @alias);
+            INSERT INTO items (type, captured_at, tag, is_sensitive, sensitive_type, text_content, username, remark, alias)
+            VALUES (@type, @cap, @tag, 1, @stype, @txt, @user, @rem, @alias);
             SELECT last_insert_rowid();";
 
         await _lock.WaitAsync();
@@ -298,6 +315,7 @@ public sealed class StorageService : IDisposable
                 ("@stype", (int)sensitiveType),
                 ("@txt", encrypted),
                 ("@user", (object?)username ?? DBNull.Value),
+                ("@rem", (object?)remark ?? DBNull.Value),
                 ("@alias", (object?)alias ?? DBNull.Value));
             return (long)(id ?? -1);
         }
@@ -446,6 +464,7 @@ public sealed class StorageService : IDisposable
             ImageHeight = r.IsDBNull(r.GetOrdinal("image_h")) ? null : r.GetInt32(r.GetOrdinal("image_h")),
             FilePathsJson = r.IsDBNull(r.GetOrdinal("file_paths")) ? null : r.GetString(r.GetOrdinal("file_paths")),
             Alias = !r.IsDBNull(r.GetOrdinal("alias")) ? r.GetString(r.GetOrdinal("alias")) : null,
+            Remark = !r.IsDBNull(r.GetOrdinal("remark")) ? r.GetString(r.GetOrdinal("remark")) : null,
         };
     }
 

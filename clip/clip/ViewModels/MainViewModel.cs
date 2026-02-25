@@ -204,9 +204,9 @@ public sealed class MainViewModel : System.ComponentModel.INotifyPropertyChanged
         }
     }
 
-    public async Task AddManualSecretAsync(string alias, string content, SensitiveType sensitiveType, string? username = null)
+    public async Task AddManualSecretAsync(string alias, string content, SensitiveType sensitiveType, string? username = null, string? remark = null)
     {
-        await _storage.AddManualSecretAsync(alias, content, sensitiveType, username);
+        await _storage.AddManualSecretAsync(alias, content, sensitiveType, username, remark);
         await RefreshSensitiveAsync();
     }
 

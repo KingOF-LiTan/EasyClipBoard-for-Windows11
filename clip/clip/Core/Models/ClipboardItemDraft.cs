@@ -13,7 +13,8 @@ public sealed record ClipboardItemDraft(
     int? ImageHeight = null,
     IReadOnlyList<string>? FilePaths = null,
     ClipboardItemTag Tag = ClipboardItemTag.Temporary,
-    bool isSensitive = false,
+    bool IsSensitive = false,
     SensitiveType SensitiveType = SensitiveType.None,
-    string? Username = null
+    string? Username = null,
+    string? Remark = null
 );

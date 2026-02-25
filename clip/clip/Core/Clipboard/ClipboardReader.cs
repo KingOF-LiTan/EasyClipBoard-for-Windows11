@@ -84,7 +84,7 @@ public static class ClipboardReader
                             DateTimeOffset.UtcNow,
                             text.Length * 2,
                             Text: text,
-                            isSensitive: sensitiveType != SensitiveType.None,
+                            IsSensitive: sensitiveType != SensitiveType.None,
                             SensitiveType: sensitiveType
                         );
                     }
