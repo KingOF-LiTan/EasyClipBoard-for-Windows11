@@ -193,6 +193,8 @@ public sealed partial class MainWindow : Window
             _appWindow.Show();
             IsShowing = true;
             Native.Win32Helper.SetForegroundWindow(_hwnd);
+            Native.Win32Helper.SetActiveWindow(_hwnd);
+            Native.Win32Helper.SetFocus(_hwnd);
         }
 
         // Trigger show animation and notify frontend to refresh
@@ -201,7 +203,7 @@ public sealed partial class MainWindow : Window
             await _bridge.PushClipboardUpdateAsync();
             if (WebView.CoreWebView2 != null)
             {
-                WebView.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
+                WebView.Focus(Microsoft.UI.Xaml.FocusState.Keyboard);
                 try { await WebView.CoreWebView2.ExecuteScriptAsync("window.__on_window_shown()"); } catch { }
             }
         }

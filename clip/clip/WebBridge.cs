@@ -56,6 +56,7 @@ public sealed class WebBridge
                 "addSecret" => await AddSecretAsync(root),
                 "deleteSecret" => await DeleteSecretAsync(root),
                 "decryptSecret" => await DecryptSecretAsync(root),
+                "getUsername" => await GetUsernameAsync(root),
                 "getSettings" => GetSettings(),
                 "setBackground" => SetBackground(root),
                 "clearBackground" => ClearBackground(),
@@ -188,6 +189,14 @@ public sealed class WebBridge
         var entity = await _storage.GetItemByIdAsync(id);
         if (entity == null || !entity.IsSensitive) return new { text = entity?.TextContent };
         return new { text = EncryptionService.Decrypt(entity.TextContent ?? "") };
+    }
+
+    private async Task<object> GetUsernameAsync(JsonElement root)
+    {
+        long id = root.GetProperty("id").GetInt64();
+        var entity = await _storage.GetItemByIdAsync(id);
+        if (entity == null) return new { success = false };
+        return new { success = true, text = entity.Username ?? "" };
     }
 
     private async Task<object> UpdateAliasAsync(JsonElement root)

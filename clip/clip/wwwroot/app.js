@@ -564,7 +564,8 @@ function renderVault(vaultItems) {
                     ${remarkHtml}
                 </div>
                 <div class="vault-actions">
-                    <button class="card-action-btn" onclick="copySecret(${item.id})" title="复制">📋</button>
+                    ${item.username ? `<button class="card-action-btn" onclick="copyUsername(${item.id})" title="复制账号">👤</button>` : ''}
+                    <button class="card-action-btn" onclick="copySecret(${item.id})" title="复制密码">🔑</button>
                     <button class="card-action-btn danger" onclick="deleteSecret(${item.id})" title="删除">✕</button>
                 </div>
             </div>
@@ -586,6 +587,14 @@ async function copySecret(id) {
     const result = await sendMessage('decryptSecret', { id });
     if (result?.text) {
         // Copy via C# bridge (pasteText action)
+        await sendMessage('pasteText', { text: result.text });
+        await sendMessage('hideWindow');
+    }
+}
+
+async function copyUsername(id) {
+    const result = await sendMessage('getUsername', { id });
+    if (result?.success && result.text) {
         await sendMessage('pasteText', { text: result.text });
         await sendMessage('hideWindow');
     }
@@ -685,4 +694,14 @@ async function hideWindowAnimated() {
 window.__on_window_shown = function () {
     playShowAnimation();
     refreshList();
+
+    // Explicitly focus the search input so keyboard navigation works immediately
+    setTimeout(() => {
+        const searchInput = document.getElementById('search-input');
+        if (searchInput && currentTab !== 'favorites' && !vaultOpen && !settingsOpen) {
+            searchInput.focus();
+        } else {
+            document.body.focus();
+        }
+    }, 50);
 };
