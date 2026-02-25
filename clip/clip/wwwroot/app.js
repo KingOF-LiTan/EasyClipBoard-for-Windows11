@@ -505,7 +505,7 @@ function setBgImage(base64Data) {
 }
 
 let maskSaveTimeout;
-function updateMask(value) {
+function changeMaskOpacity(value) {
     updateMaskVisual(value);
     // Debounce saving to avoid spamming the bridge
     clearTimeout(maskSaveTimeout);
