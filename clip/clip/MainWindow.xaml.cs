@@ -48,10 +48,18 @@ public sealed partial class MainWindow : Window
         // Extend content into title bar to remove system chrome
         ExtendsContentIntoTitleBar = true;
 
-        // No MicaBackdrop - we handle background entirely in the web layer
-        // Set a dark background on the Grid instead
-        RootGrid.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(
-            Microsoft.UI.ColorHelper.FromArgb(255, 24, 24, 27)); // #18181B
+        // Enable Native Windows 11 SystemBackdrop (Acrylic/Mica)
+        if (Microsoft.UI.Composition.SystemBackdrops.DesktopAcrylicController.IsSupported())
+        {
+            SystemBackdrop = new Microsoft.UI.Xaml.Media.DesktopAcrylicBackdrop();
+        }
+        else if (Microsoft.UI.Composition.SystemBackdrops.MicaController.IsSupported())
+        {
+            SystemBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop();
+        }
+
+        // Must be transparent to let the native backdrop shine through
+        RootGrid.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
 
         if (AppWindow.TitleBar != null)
         {
@@ -284,8 +292,8 @@ public sealed partial class MainWindow : Window
             uint color = Native.Win32Helper.DWM_BORDER_COLOR_NONE;
             Native.Win32Helper.DwmSetWindowAttribute(_hwnd, Native.Win32Helper.DWMWA_BORDER_COLOR, ref color, sizeof(uint));
 
-            // Disable Windows 11 auto-rounded corners
-            int cornerPref = Native.Win32Helper.DWMWCP_DONOTROUND;
+            // Enable Windows 11 auto-rounded corners
+            int cornerPref = Native.Win32Helper.DWMWCP_ROUND;
             Native.Win32Helper.DwmSetWindowAttribute(_hwnd, Native.Win32Helper.DWMWA_WINDOW_CORNER_PREFERENCE, ref cornerPref, sizeof(int));
         }
         catch { }

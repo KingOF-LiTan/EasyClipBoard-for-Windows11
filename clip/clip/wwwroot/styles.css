@@ -190,7 +190,6 @@ body.anim-hide {
     gap: 10px;
     border-radius: var(--border-radius);
     overflow: hidden;
-    background-color: var(--bg-overlay);
 }
 
 /* Drag handle at the top */
