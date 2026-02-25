@@ -357,14 +357,14 @@ public sealed class StorageService : IDisposable
         try
         {
             using var cmd = _conn!.CreateCommand();
-            cmd.CommandText = "SELECT image_blob FROM items WHERE is_favorite = 0 AND image_blob IS NOT NULL;";
+            cmd.CommandText = "SELECT image_blob FROM items WHERE is_favorite = 0 AND is_sensitive = 0 AND image_blob IS NOT NULL;";
             using var reader = await cmd.ExecuteReaderAsync();
             while (await reader.ReadAsync()) blobs.Add(reader.GetString(0));
         }
         finally { _lock.Release(); }
 
         foreach (var b in blobs) try { File.Delete(Path.Combine(_blobDir, b)); } catch { }
-        await ExecAsync("DELETE FROM items WHERE is_favorite = 0;");
+        await ExecAsync("DELETE FROM items WHERE is_favorite = 0 AND is_sensitive = 0;");
     }
 
     public async Task<int> PurgeExpiredAsync(TimeSpan maxAge)
@@ -375,7 +375,7 @@ public sealed class StorageService : IDisposable
         try
         {
             using var cmd = _conn!.CreateCommand();
-            cmd.CommandText = "SELECT image_blob FROM items WHERE is_favorite = 0 AND captured_at < @cut AND image_blob IS NOT NULL;";
+            cmd.CommandText = "SELECT image_blob FROM items WHERE is_favorite = 0 AND is_sensitive = 0 AND captured_at < @cut AND image_blob IS NOT NULL;";
             cmd.Parameters.AddWithValue("@cut", cutoff);
             using var reader = await cmd.ExecuteReaderAsync();
             while (await reader.ReadAsync()) blobs.Add(reader.GetString(0));
@@ -388,7 +388,7 @@ public sealed class StorageService : IDisposable
         try
         {
             using var cmd = _conn!.CreateCommand();
-            cmd.CommandText = "DELETE FROM items WHERE is_favorite = 0 AND captured_at < @cut;";
+            cmd.CommandText = "DELETE FROM items WHERE is_favorite = 0 AND is_sensitive = 0 AND captured_at < @cut;";
             cmd.Parameters.AddWithValue("@cut", cutoff);
             return await cmd.ExecuteNonQueryAsync();
         }

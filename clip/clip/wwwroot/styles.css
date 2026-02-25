@@ -98,7 +98,7 @@ body {
     background: transparent;
     overflow: hidden;
     user-select: none;
-    border-radius: 12px;
+    border-radius: var(--border-radius);
 }
 
 input,
@@ -187,7 +187,6 @@ body.anim-hide {
     flex-direction: column;
     height: 100vh;
     padding: 12px;
-    padding-top: 0;
     gap: 10px;
     border-radius: var(--border-radius);
     overflow: hidden;
