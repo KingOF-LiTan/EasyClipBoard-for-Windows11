@@ -48,14 +48,16 @@ public sealed partial class MainWindow : Window
         // Extend content into title bar to remove system chrome
         ExtendsContentIntoTitleBar = true;
 
-        // Enable Native Windows 11 SystemBackdrop (Acrylic/Mica)
-        if (Microsoft.UI.Composition.SystemBackdrops.DesktopAcrylicController.IsSupported())
+        // Enable Native Windows 11 SystemBackdrop (MicaAlt / Acrylic)
+        if (Microsoft.UI.Composition.SystemBackdrops.MicaController.IsSupported())
+        {
+            var mica = new Microsoft.UI.Xaml.Media.MicaBackdrop();
+            try { mica.Kind = Microsoft.UI.Composition.SystemBackdrops.MicaKind.BaseAlt; } catch { }
+            SystemBackdrop = mica;
+        }
+        else if (Microsoft.UI.Composition.SystemBackdrops.DesktopAcrylicController.IsSupported())
         {
             SystemBackdrop = new Microsoft.UI.Xaml.Media.DesktopAcrylicBackdrop();
-        }
-        else if (Microsoft.UI.Composition.SystemBackdrops.MicaController.IsSupported())
-        {
-            SystemBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop();
         }
 
         // Must be transparent to let the native backdrop shine through
@@ -88,6 +90,9 @@ public sealed partial class MainWindow : Window
         _appWindow.Resize(new Windows.Graphics.SizeInt32(DefaultDipWidth, DefaultDipHeight));
 
         Closed += (s, e) => { };
+
+        // Ensure WebView2 inherently supports transparency at the environment level
+        Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "00000000");
 
         // Initialize WebView2
         _ = InitWebViewAsync();

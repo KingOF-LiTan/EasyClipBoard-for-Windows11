@@ -48,7 +48,7 @@
     --segment-active-text: #1a1a1a;
     --search-bg: rgba(0, 0, 0, 0.04);
     --search-border: rgba(0, 0, 0, 0.08);
-    --panel-bg: rgba(255, 255, 255, 0.6);
+    --panel-bg: #f9f9f9;
     --divider: rgba(0, 0, 0, 0.06);
     --tag-important: #ef4444;
     --tag-frequent: #f97316;
@@ -81,7 +81,7 @@
     --segment-active-text: #e0e0e0;
     --search-bg: rgba(255, 255, 255, 0.06);
     --search-border: rgba(255, 255, 255, 0.1);
-    --panel-bg: rgba(18, 18, 18, 0.5);
+    --panel-bg: #1e1e23;
     --divider: rgba(255, 255, 255, 0.06);
     --btn-hover: rgba(255, 255, 255, 0.08);
     --shortcut-bg: rgba(255, 255, 255, 0.06);
@@ -533,8 +533,6 @@ body.anim-hide {
     inset: 0;
     z-index: 10;
     background: var(--panel-bg);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
     border-radius: var(--border-radius);
     display: flex;
     flex-direction: column;
