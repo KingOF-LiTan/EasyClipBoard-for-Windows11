@@ -169,12 +169,14 @@ body.anim-hide {
 #overlay-layer {
     position: fixed;
     inset: 0;
-    background: var(--bg-overlay);
+    background: transparent;
     z-index: 1;
+    transition: background 0.3s;
 }
 
-/* Only apply blur when background image is active */
+/* Only apply mask and blur when background image is active */
 #bg-layer.active~#overlay-layer {
+    background: var(--bg-overlay);
     backdrop-filter: blur(var(--bg-blur));
     -webkit-backdrop-filter: blur(var(--bg-blur));
 }

@@ -516,11 +516,10 @@ function changeMaskOpacity(value) {
 }
 
 function updateMaskVisual(opacity) {
-    const overlay = document.getElementById('overlay-layer');
     if (currentTheme === 'dark') {
-        overlay.style.background = `rgba(0, 0, 0, ${opacity})`;
+        document.documentElement.style.setProperty('--bg-overlay', `rgba(0, 0, 0, ${opacity})`);
     } else {
-        overlay.style.background = `rgba(255, 255, 255, ${opacity})`;
+        document.documentElement.style.setProperty('--bg-overlay', `rgba(255, 255, 255, ${opacity})`);
     }
 }
 
