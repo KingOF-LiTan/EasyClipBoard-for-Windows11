@@ -6,3 +6,14 @@ obj/
 *.db-shm
 *.db-wal
 *.log
+.vscode/nul
+
+# Local investigation/build artifacts
+build_*.txt
+build_err.txt
+build.log
+diff.txt
+git_history.txt
+git_log*.txt
+old_*
+summary.md

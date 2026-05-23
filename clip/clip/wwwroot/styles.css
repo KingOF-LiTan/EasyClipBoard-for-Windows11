@@ -30,62 +30,73 @@
 }
 
 :root {
-    /* Light theme */
-    --bg-overlay: rgba(255, 255, 255, 0.6);
-    --bg-blur: 8px;
-    --card-bg: rgba(255, 255, 255, 0.85);
-    --card-border: rgba(0, 0, 0, 0.06);
-    --card-hover-bg: rgba(255, 255, 255, 0.95);
-    --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    /* Light theme - glass effect on Windows 11 Mica */
+    --bg-overlay: transparent;
+    --bg-blur: 5px;
+    --card-bg: rgba(255, 255, 255, 0.72);
+    --card-border: rgba(0, 0, 0, 0.07);
+    --card-hover-bg: rgba(255, 255, 255, 0.88);
+    --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
     --text-primary: #1a1a1a;
-    --text-secondary: #666;
-    --text-muted: #999;
-    --accent-blue: #3b82f6;
-    --accent-amber: #f59e0b;
+    --text-secondary: #555;
+    --text-muted: #888;
+    --accent-blue: #0067c0;
+    --accent-amber: #d97706;
     --segment-bg: rgba(0, 0, 0, 0.06);
-    --segment-slider: #ffffff;
-    --segment-text: #666;
+    --segment-slider: rgba(255, 255, 255, 0.9);
+    --segment-text: #555;
     --segment-active-text: #1a1a1a;
-    --search-bg: rgba(0, 0, 0, 0.04);
-    --search-border: rgba(0, 0, 0, 0.08);
-    --panel-bg: #f9f9f9;
-    --divider: rgba(0, 0, 0, 0.06);
-    --tag-important: #ef4444;
-    --tag-frequent: #f97316;
-    --tag-script: #3b82f6;
-    --tag-temporary: #22c55e;
+    --search-bg: rgba(255, 255, 255, 0.65);
+    --search-border: rgba(0, 0, 0, 0.09);
+    /* panel-bg is used by settings / vault overlay — should be opaque enough to prevent text bleed */
+    --panel-bg: rgba(240, 240, 240, 0.92);
+    --divider: rgba(0, 0, 0, 0.08);
+    --tag-important: #e81123;
+    --tag-frequent: #d13438;
+    --tag-script: #0067c0;
+    --tag-temporary: #107c10;
     --btn-hover: rgba(0, 0, 0, 0.06);
-    --shortcut-bg: rgba(0, 0, 0, 0.06);
-    --shortcut-text: #999;
+    --shortcut-bg: rgba(0, 0, 0, 0.07);
+    --shortcut-text: #888;
     --selected-ring: var(--accent-blue);
     --border-radius: 12px;
-    --card-radius: 10px;
+    --card-radius: 8px;
+    --content-bg: transparent;
+    /* Light: let Mica shine */
 }
 
 [data-theme="dark"] {
-    --bg-overlay: rgba(18, 18, 18, 0.5);
-    --card-bg: rgba(30, 30, 35, 0.75);
-    /* Darker card bg */
-    --card-border: rgba(255, 255, 255, 0.08);
-    /* Softer border */
-    --card-hover-bg: rgba(45, 45, 50, 0.85);
-    --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    --text-primary: #f3f4f6;
-    --text-secondary: #a1a1aa;
-    --text-muted: #71717a;
-    --accent-blue: #60a5fa;
-    --accent-amber: #fbbf24;
-    --segment-bg: rgba(0, 0, 0, 0.3);
-    --segment-slider: rgba(255, 255, 255, 0.1);
-    --segment-text: #888;
-    --segment-active-text: #e0e0e0;
-    --search-bg: rgba(255, 255, 255, 0.06);
-    --search-border: rgba(255, 255, 255, 0.1);
-    --panel-bg: #1e1e23;
-    --divider: rgba(255, 255, 255, 0.06);
-    --btn-hover: rgba(255, 255, 255, 0.08);
-    --shortcut-bg: rgba(255, 255, 255, 0.06);
-    --shortcut-text: #555;
+    --bg-overlay: transparent;
+    --card-bg: rgba(62, 62, 68, 0.88);
+    --card-border: rgba(255, 255, 255, 0.12);
+    --card-hover-bg: rgba(78, 78, 86, 0.95);
+    --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+    --text-primary: #f2f2f2;
+    --text-secondary: #c8c8c8;
+    --text-muted: #909090;
+    --accent-blue: #4cc2ff;
+    --accent-amber: #fce100;
+    --segment-bg: rgba(255, 255, 255, 0.09);
+    --segment-slider: rgba(255, 255, 255, 0.20);
+    --segment-text: #aaa;
+    --segment-active-text: #f2f2f2;
+    --search-bg: rgba(255, 255, 255, 0.10);
+    --search-border: rgba(255, 255, 255, 0.14);
+    /* panel-bg is opaque enough to prevent text bleed from beneath */
+    --panel-bg: rgba(32, 32, 36, 0.96);
+    --divider: rgba(255, 255, 255, 0.10);
+    --btn-hover: rgba(255, 255, 255, 0.10);
+    --shortcut-bg: rgba(255, 255, 255, 0.10);
+    --shortcut-text: #888;
+    --tag-important: #ff6b6b;
+    --tag-frequent: #ff4f58;
+    --tag-script: #4cc2ff;
+    --tag-temporary: #4caf50;
+    --selected-ring: var(--accent-blue);
+    --border-radius: 12px;
+    --card-radius: 8px;
+    --content-bg: rgba(22, 22, 26, 0.82);
+    /* Dark: add a dark tint over Mica */
 }
 
 html,
@@ -99,6 +110,10 @@ body {
     overflow: hidden;
     user-select: none;
     border-radius: var(--border-radius);
+}
+
+html {
+    background: transparent;
 }
 
 input,
@@ -192,7 +207,9 @@ body.anim-hide {
     gap: 10px;
     border-radius: var(--border-radius);
     overflow: hidden;
-    background-color: var(--bg-overlay);
+    /* Light mode = transparent (show Mica); Dark mode = dark tinted via --content-bg */
+    background: var(--content-bg);
+    transition: background 0.3s ease;
 }
 
 /* Drag handle at the top */
@@ -344,17 +361,26 @@ body.anim-hide {
     cursor: pointer;
     transition: all 0.15s ease;
     box-shadow: var(--card-shadow);
+    /* Glass effect: blur what's behind cards at the OS level */
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.card-draggable {
+    cursor: grab;
+    /* Signal that this card can be dragged to another app */
 }
 
 .card:hover {
     background: var(--card-hover-bg);
     transform: translateY(-1px);
-    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
 }
 
 .card.selected {
     outline: 2px solid var(--selected-ring);
     outline-offset: -2px;
+    background: var(--card-hover-bg);
 }
 
 /* Image cards: overflow hidden to clip the top image within border-radius */
@@ -382,6 +408,22 @@ body.anim-hide {
     flex-shrink: 0;
     margin-top: 2px;
     border: 1px solid rgba(128, 128, 128, 0.2);
+}
+
+.tag-important-text {
+    color: var(--tag-important);
+}
+
+.tag-frequent-text {
+    color: var(--tag-frequent);
+}
+
+.tag-script-text {
+    color: var(--tag-script);
+}
+
+.tag-temporary-text {
+    color: var(--tag-temporary);
 }
 
 .card-content {
@@ -455,12 +497,13 @@ body.anim-hide {
 .card-shortcut {
     position: absolute;
     top: 6px;
-    right: 8px;
+    left: 8px;
+    /* Move to left so it never overlaps card-actions on the right */
     font-size: 10px;
-    font-weight: 600;
-    color: var(--shortcut-text);
+    font-weight: 700;
+    color: var(--text-muted);
     background: var(--shortcut-bg);
-    padding: 1px 5px;
+    padding: 1px 6px;
     border-radius: 4px;
     opacity: 0;
     transition: opacity 0.15s;
@@ -469,6 +512,8 @@ body.anim-hide {
 .card:hover .card-shortcut,
 .card.selected .card-shortcut {
     opacity: 1;
+    color: var(--accent-blue);
+    background: rgba(76, 194, 255, 0.15);
 }
 
 /* ── Hover Actions ── */
@@ -487,8 +532,14 @@ body.anim-hide {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-.card:hover .card-actions {
+.card:hover .card-actions,
+.card.selected .card-actions {
     opacity: 1;
+}
+
+.card.selected .card-action-btn.paste-btn {
+    color: var(--accent-blue);
+    background: rgba(0, 103, 192, 0.12);
 }
 
 .card-action-btn {
@@ -515,6 +566,16 @@ body.anim-hide {
     color: #ef4444;
 }
 
+.card-action-btn.paste-btn {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.card-action-btn.paste-btn:hover {
+    color: var(--accent-blue);
+    background: rgba(0, 103, 192, 0.12);
+}
+
 /* ── Empty Hint ── */
 #empty-hint {
     display: flex;
@@ -539,6 +600,9 @@ body.anim-hide {
     padding: 12px;
     animation: slideIn 0.2s ease;
     -webkit-app-region: no-drag;
+    /* Blur whatever is behind (cards from the main view) */
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
 }
 
 @keyframes slideIn {
@@ -603,6 +667,12 @@ body.anim-hide {
     border-top: 1px solid var(--divider);
 }
 
+.setting-row-stacked {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+}
+
 .setting-actions {
     display: flex;
     gap: 6px;
@@ -651,6 +721,45 @@ select {
     font-size: 12px;
     font-family: inherit;
     cursor: pointer;
+}
+
+.form-control,
+.shortcut-input {
+    width: 100%;
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--search-border);
+    background: var(--search-bg);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: inherit;
+}
+
+.shortcut-input {
+    color: var(--accent-blue);
+    font-style: normal;
+    cursor: pointer;
+    text-align: center;
+    font-family: monospace;
+}
+
+.shortcut-input.recording {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.shortcut-input.error {
+    color: var(--accent-amber);
+    font-style: normal;
+}
+
+.shortcut-input.success {
+    color: var(--tag-temporary);
+    font-style: normal;
+}
+
+.form-textarea {
+    resize: none;
 }
 
 input[type="range"] {
@@ -743,6 +852,38 @@ input[type="range"] {
     gap: 2px;
 }
 
+.panel-header-action {
+    margin-left: auto;
+}
+
+.vault-empty {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 20px;
+}
+
+.vault-remark {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+.vault-add-box {
+    width: 360px;
+}
+
+.vault-form-row {
+    margin-bottom: 8px;
+}
+
+.vault-form-row-last {
+    margin-bottom: 20px;
+}
+
+.vault-form-label {
+    min-width: 50px;
+}
+
 #vault-search {
     width: 100%;
     padding: 8px 12px;
@@ -794,6 +935,18 @@ input[type="range"] {
     margin: 0 auto;
 }
 
+.preview-loading {
+    text-align: center;
+    padding: 24px;
+    color: var(--text-muted);
+}
+
+.preview-text {
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: inherit;
+}
+
 /* ── Confirm Modal ── */
 #confirm-modal,
 #vault-add-modal {
@@ -828,6 +981,26 @@ input[type="range"] {
 
 #confirm-message {
     color: var(--text-primary) !important;
+}
+
+.modal-title {
+    margin-top: 0;
+    margin-bottom: 16px;
+}
+
+.modal-title.compact {
+    margin-bottom: 0;
+}
+
+.confirm-message {
+    margin-bottom: 20px;
+    color: var(--text-secondary);
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
 }
 
 /* ── Utility ── */

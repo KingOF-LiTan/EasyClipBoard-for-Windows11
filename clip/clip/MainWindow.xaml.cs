@@ -48,7 +48,7 @@ public sealed partial class MainWindow : Window
         // Extend content into title bar to remove system chrome
         ExtendsContentIntoTitleBar = true;
 
-        // Enable Native Windows 11 SystemBackdrop (MicaAlt / Acrylic)
+        // Enable Native Windows 11 SystemBackdrop (Mica / Acrylic)
         if (Microsoft.UI.Composition.SystemBackdrops.MicaController.IsSupported())
         {
             var mica = new Microsoft.UI.Xaml.Media.MicaBackdrop();
@@ -91,9 +91,6 @@ public sealed partial class MainWindow : Window
 
         Closed += (s, e) => { };
 
-        // Ensure WebView2 inherently supports transparency at the environment level
-        Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "00000000");
-
         // Initialize WebView2
         _ = InitWebViewAsync();
     }
@@ -104,7 +101,9 @@ public sealed partial class MainWindow : Window
     {
         try
         {
-            string userDataDir = Path.Combine(ApplicationData.Current.LocalFolder.Path, "WebView2");
+            System.Environment.SetEnvironmentVariable("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--default-background-color=00000000");
+            string userDataDir = Path.Combine(Windows.Storage.ApplicationData.Current.LocalFolder.Path, "WebView2");
+            System.Environment.SetEnvironmentVariable("WEBVIEW2_USER_DATA_FOLDER", userDataDir);
             var env = await CoreWebView2Environment.CreateAsync();
 
             await WebView.EnsureCoreWebView2Async(env);
@@ -126,8 +125,17 @@ public sealed partial class MainWindow : Window
 
             // Clear cache locally to ensure UI updates are fetched
             await WebView.CoreWebView2.Profile.ClearBrowsingDataAsync();
-
-            // Removing previous data.local mapping as it causes CORS issues
+            
+            // Inject Language / i18n
+            string lang = Core.SettingsManager.Get("language", "zh");
+            string localeFile = Path.Combine(wwwroot, "locales", $"{lang}.json");
+            string localeJson = "{}";
+            if (File.Exists(localeFile))
+            {
+                localeJson = File.ReadAllText(localeFile);
+            }
+            await WebView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
+                $"window.INITIAL_LOCALE = {localeJson}; window.USER_LANG = '{lang}';");
             
             // Message handler
             WebView.CoreWebView2.WebMessageReceived += async (s, e) =>
@@ -137,6 +145,10 @@ public sealed partial class MainWindow : Window
                     await _bridge.HandleMessageAsync(e.WebMessageAsJson);
                 }
             };
+            
+            // Pass ALL accelerator keys through to JS (needed by hotkey recorder).
+            // AreBrowserAcceleratorKeysEnabled=false (set above) already suppresses browser-level
+            // consumption of Ctrl+Tab, Ctrl+F etc., so Ctrl+key events reach our JS keydown handler.
 
             // Navigate
             WebView.CoreWebView2.Navigate("https://app.local/index.html");

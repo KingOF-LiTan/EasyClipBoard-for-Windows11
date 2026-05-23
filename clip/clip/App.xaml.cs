@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -12,6 +14,9 @@ namespace clip
     /// </summary>
     public partial class App : Application
     {
+        public static new App Current => (App)Application.Current;
+        internal MessageOnlyWindowHost? Host => _host;
+
         private MessageOnlyWindowHost? _host;
         private MainWindow? _mainWindow;
         private Window? _dialogOwner;
@@ -19,6 +24,7 @@ namespace clip
         private DispatcherTimer? _purgeTimer;
         private DispatcherQueue? _uiDispatcher;
         private bool _isInitialized;
+        private Mutex? _singleInstanceMutex;
 
         // ── 热切换 (Hot Switch) 状态 ──
         private KeyboardHookService? _kbdHook;
@@ -39,6 +45,13 @@ namespace clip
         private DateTimeOffset _suppressUntil = DateTimeOffset.MinValue;
         private static readonly TimeSpan SuppressWindow = TimeSpan.FromMilliseconds(500);
 
+        /// <summary>Suppress the next clipboard-changed event for the given duration (used by plain-text paste).</summary>
+        public static void SuppressClipboardUpdate(TimeSpan duration)
+        {
+            if (Application.Current is App app)
+                app._suppressUntil = DateTimeOffset.UtcNow + duration;
+        }
+
         public App()
         {
             InitializeComponent();
@@ -46,7 +59,21 @@ namespace clip
 
         protected override async void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
         {
-            _uiDispatcher = DispatcherQueue.GetForCurrentThread();
+            _singleInstanceMutex = new Mutex(initiallyOwned: true, name: @"Local\WinClipboard.SingleInstance", out var createdNew);
+            if (!createdNew)
+            {
+                System.Diagnostics.Debug.WriteLine("[App] 已有实例运行，退出当前实例");
+                _singleInstanceMutex.Dispose();
+                _singleInstanceMutex = null;
+                Application.Current.Exit();
+                return;
+            }
+
+            // Ensure WebView2 inherently supports transparency at the environment level globally
+            // This MUST be set before the very first WebView2 layout event in WinUI3
+            System.Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "00000000");
+
+            _uiDispatcher = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
 
             try
             {
@@ -257,7 +284,26 @@ namespace clip
                 _purgeTimer?.Stop();
                 _host?.Stop();
                 _storage?.Dispose();
+                ReleaseSingleInstanceMutex();
                 Application.Current.Exit();
+            }
+        }
+
+        private void ReleaseSingleInstanceMutex()
+        {
+            if (_singleInstanceMutex == null) return;
+
+            try
+            {
+                _singleInstanceMutex.ReleaseMutex();
+            }
+            catch (ApplicationException)
+            {
+            }
+            finally
+            {
+                _singleInstanceMutex.Dispose();
+                _singleInstanceMutex = null;
             }
         }
 
@@ -302,7 +348,6 @@ namespace clip
                 System.Diagnostics.Debug.WriteLine($"[Clipboard] {draft.Type} (Sensitive: {isSensitive})");
 
                 // ── 持久化到 SQLite ──
-                // 修改 draft 以包含敏感标记（由于 draft 是 record，我们需要 With 语法或更新构造）
                 var finalDraft = draft with { Tag = isSensitive ? Core.Models.ClipboardItemTag.Important : draft.Tag };
                 
                 var id = await _storage.SaveItemAsync(finalDraft);
@@ -313,6 +358,30 @@ namespace clip
                     await _storage.UpdateSensitiveFlagAsync(id, true);
                 }
 
+                // ── 图片 OCR (fire-and-forget, does not block clipboard listener) ──
+                if (draft.Type == Core.Models.ClipboardItemType.Image && draft.ImagePng is { Length: > 0 } && id > 0)
+                {
+                    var capturedId = id;
+                    var capturedPng = draft.ImagePng;
+                    var capturedStorage = _storage;
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            var ocrText = await Core.OcrService.ExtractTextAsync(capturedPng);
+                            if (!string.IsNullOrWhiteSpace(ocrText))
+                            {
+                                await capturedStorage.UpdateOcrTextAsync(capturedId, ocrText);
+                                System.Diagnostics.Debug.WriteLine($"[OCR] id={capturedId} extracted {ocrText.Length} chars");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"[OCR] Failed for id={capturedId}: {ex.Message}");
+                        }
+                    });
+                }
+
                 System.Diagnostics.Debug.WriteLine($"[Storage] 已保存条目, id={id}");
 
                 // 刷新 UI
@@ -321,7 +390,6 @@ namespace clip
                     if (_mainWindow != null)
                     {
                         _mainWindow.NotifyClipboardChanged();
-                        System.Diagnostics.Debug.WriteLine("[UI] 列表刷新请求已发出");
                     }
                 });
             }

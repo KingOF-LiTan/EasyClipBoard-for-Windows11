@@ -5,11 +5,16 @@ using Microsoft.UI.Dispatching;
 
 namespace clip.Native;
 
+/// <summary>
+/// Manages the Win32 message thread, HWND lifecycle, message pump, and tray menu.
+/// Acts as the routing hub for <see cref="GlobalHotkeyService"/>,
+/// <see cref="ClipboardListenerService"/>, <see cref="PlainTextPasteService"/>,
+/// and <see cref="TrayIconService"/>.
+/// </summary>
 internal sealed class MessageOnlyWindowHost : IDisposable
 {
     private const int WM_DESTROY = 0x0002;
     private const int WM_COMMAND = 0x0111;
-    private const int WM_HOTKEY = 0x0312;
 
     private const int ID_TRAY_SHOWHIDE = 2001;
     private const int ID_TRAY_SETTINGS = 2002;
@@ -20,29 +25,39 @@ internal sealed class MessageOnlyWindowHost : IDisposable
     private const uint TPM_RETURNCMD = 0x0100;
 
     private readonly DispatcherQueue _uiQueue;
+    private readonly GlobalHotkeyService _hotkey;
+    private readonly ClipboardListenerService _clipboard;
+    private readonly PlainTextPasteService _pasteService;
 
     private Thread? _thread;
     private IntPtr _hwnd;
-
     private TrayIconService? _tray;
     private IntPtr _menu;
 
     public event Action<int, int>? ToggleUiRequested;
     public event Action? SettingsRequested;
     public event Action? ExitRequested;
-    public event Action? ClipboardChanged;
+
+    public event Action? ClipboardChanged
+    {
+        add => _clipboard.ClipboardChanged += value;
+        remove => _clipboard.ClipboardChanged -= value;
+    }
 
     public MessageOnlyWindowHost(DispatcherQueue uiQueue)
     {
         _uiQueue = uiQueue;
+        _hotkey = new GlobalHotkeyService(uiQueue);
+        _clipboard = new ClipboardListenerService(uiQueue);
+        _pasteService = new PlainTextPasteService();
+
+        _hotkey.ToggleRequested += () => RaiseToggleUiAtCursor();
+        _hotkey.PlainTextPasteRequested += () => _pasteService.Execute(_hwnd);
     }
 
     public void Start()
     {
-        if (_thread != null)
-        {
-            return;
-        }
+        if (_thread != null) return;
 
         _thread = new Thread(ThreadMain)
         {
@@ -55,54 +70,38 @@ internal sealed class MessageOnlyWindowHost : IDisposable
 
     public void Stop()
     {
-        if (_thread == null)
-        {
-            return;
-        }
+        if (_thread == null) return;
 
         if (_hwnd != IntPtr.Zero)
-        {
             PostMessage(_hwnd, WM_DESTROY, IntPtr.Zero, IntPtr.Zero);
-        }
 
         _thread.Join(TimeSpan.FromSeconds(2));
         _thread = null;
     }
 
-    public void Dispose()
-    {
-        Stop();
-    }
+    public void Dispose() => Stop();
+
+    public bool RebindHotKey(uint modifiers, uint vk) => _hotkey.Rebind(_hwnd, modifiers, vk);
 
     private void ThreadMain()
     {
         _instance = this;
-
         _hwnd = CreateMessageOnlyWindow();
-        if (_hwnd == IntPtr.Zero)
-        {
-            return;
-        }
+        if (_hwnd == IntPtr.Zero) return;
 
-        // hotkey
-        Win32Helper.RegisterHotKey(_hwnd, 1001, Win32Helper.MOD_CONTROL, Win32Helper.VK_TAB);
+        _hotkey.RegisterInitial(_hwnd);
+        _clipboard.Attach(_hwnd);
 
-        // clipboard listener
-        Win32Helper.AddClipboardFormatListener(_hwnd);
-
-        // tray
         _tray = new TrayIconService(_hwnd);
         _tray.LeftClick += () => _uiQueue.TryEnqueue(() => RaiseToggleUiAtCursor());
         _tray.RightClick += ShowTrayMenu;
-
-        IntPtr hIcon = LoadIcon(IntPtr.Zero, new IntPtr(32512)); // IDI_APPLICATION
+        IntPtr hIcon = LoadIcon(IntPtr.Zero, new IntPtr(32512));
         _tray.Create(hIcon, "WinClipboard");
 
-        // menu
-        _menu = CreatePopupMenu();
-        AppendMenu(_menu, 0x0000, ID_TRAY_SHOWHIDE, "显示/隐藏");
-        AppendMenu(_menu, 0x0000, ID_TRAY_SETTINGS, "设置");
-        AppendMenu(_menu, 0x0000, ID_TRAY_EXIT, "退出");
+        _menu = Win32Helper.CreatePopupMenu();
+        Win32Helper.AppendMenu(_menu, 0x0000, ID_TRAY_SHOWHIDE, "显示/隐藏");
+        Win32Helper.AppendMenu(_menu, 0x0000, ID_TRAY_SETTINGS, "设置");
+        Win32Helper.AppendMenu(_menu, 0x0000, ID_TRAY_EXIT, "退出");
 
         MSG msg;
         while (GetMessage(out msg, IntPtr.Zero, 0, 0))
@@ -116,37 +115,16 @@ internal sealed class MessageOnlyWindowHost : IDisposable
 
     private void Cleanup()
     {
-        try
-        {
-            if (_hwnd != IntPtr.Zero)
-            {
-                Win32Helper.RemoveClipboardFormatListener(_hwnd);
-                Win32Helper.UnregisterHotKey(_hwnd, 1001);
-            }
-        }
-        catch
-        {
-        }
+        _clipboard.Detach(_hwnd);
+        _hotkey.UnregisterAll(_hwnd);
+
+        try { _tray?.Dispose(); } catch { }
 
         try
         {
-            _tray?.Dispose();
+            if (_menu != IntPtr.Zero) { Win32Helper.DestroyMenu(_menu); _menu = IntPtr.Zero; }
         }
-        catch
-        {
-        }
-
-        try
-        {
-            if (_menu != IntPtr.Zero)
-            {
-                DestroyMenu(_menu);
-                _menu = IntPtr.Zero;
-            }
-        }
-        catch
-        {
-        }
+        catch { }
 
         _hwnd = IntPtr.Zero;
         _instance = null;
@@ -154,49 +132,37 @@ internal sealed class MessageOnlyWindowHost : IDisposable
 
     private void RaiseToggleUiAtCursor()
     {
-        if (GetCursorPos(out var pt))
-        {
+        if (Win32Helper.GetCursorPos(out var pt))
             ToggleUiRequested?.Invoke(pt.X, pt.Y);
-        }
         else
-        {
             ToggleUiRequested?.Invoke(0, 0);
-        }
     }
 
     private void ShowTrayMenu()
     {
-        if (_menu == IntPtr.Zero || _hwnd == IntPtr.Zero)
-        {
-            return;
-        }
+        if (_menu == IntPtr.Zero || _hwnd == IntPtr.Zero) return;
 
-        GetCursorPos(out var pt);
+        Win32Helper.GetCursorPos(out var pt);
+        Win32Helper.SetForegroundWindow(_hwnd);
 
-        // Required so the menu closes correctly.
-        SetForegroundWindow(_hwnd);
-
-        int cmd = TrackPopupMenuEx(
-            _menu,
-            TPM_RIGHTBUTTON | TPM_NONOTIFY | TPM_RETURNCMD,
-            pt.X,
-            pt.Y,
-            _hwnd,
-            IntPtr.Zero);
+        int cmd = Win32Helper.TrackPopupMenuEx(
+            _menu, TPM_RIGHTBUTTON | TPM_NONOTIFY | TPM_RETURNCMD,
+            pt.X, pt.Y, _hwnd, IntPtr.Zero);
 
         if (cmd != 0)
-        {
-            // Simulate WM_COMMAND to reuse handler.
-            PostMessage(_hwnd, WM_COMMAND, new IntPtr(cmd), IntPtr.Zero);
-        }
+            Win32Helper.PostMessage(_hwnd, WM_COMMAND, new IntPtr(cmd), IntPtr.Zero);
 
-        PostMessage(_hwnd, 0, IntPtr.Zero, IntPtr.Zero);
+        Win32Helper.PostMessage(_hwnd, 0, IntPtr.Zero, IntPtr.Zero);
     }
+
+    // ── WndProc ──────────────────────────────────────────────────────────────
+
+    private static MessageOnlyWindowHost? _instance;
+    private static WndProcDelegate? _wndProcDelegate;
 
     private IntPtr CreateMessageOnlyWindow()
     {
         _wndProcDelegate = WndProc;
-
         var wc = new WNDCLASSEX
         {
             cbSize = (uint)Marshal.SizeOf<WNDCLASSEX>(),
@@ -205,71 +171,37 @@ internal sealed class MessageOnlyWindowHost : IDisposable
         };
 
         RegisterClassEx(ref wc);
-
-        // HWND_MESSAGE = (HWND)-3
-        return CreateWindowEx(
-            0,
-            wc.lpszClassName,
-            "",
-            0,
-            0,
-            0,
-            0,
-            0,
-            new IntPtr(-3),
-            IntPtr.Zero,
-            IntPtr.Zero,
-            IntPtr.Zero);
+        return CreateWindowEx(0, wc.lpszClassName, "", 0, 0, 0, 0, 0,
+            new IntPtr(-3), IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
     }
-
-    private static MessageOnlyWindowHost? _instance;
-    private static WndProcDelegate? _wndProcDelegate;
 
     private static IntPtr WndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
     {
         var host = _instance;
-        if (host == null)
-        {
-            return DefWindowProc(hWnd, msg, wParam, lParam);
-        }
+        if (host == null) return DefWindowProc(hWnd, msg, wParam, lParam);
 
-        if (msg == Win32Helper.WM_CLIPBOARDUPDATE)
-        {
-            host._uiQueue.TryEnqueue(() => host.ClipboardChanged?.Invoke());
+        // Hotkey messages
+        if (host._hotkey.HandleMessage(msg, wParam, lParam, hWnd))
             return IntPtr.Zero;
-        }
 
-        if (msg == WM_HOTKEY)
-        {
-            if (wParam.ToInt32() == 1001)
-            {
-                host._uiQueue.TryEnqueue(() => host.RaiseToggleUiAtCursor());
-                return IntPtr.Zero;
-            }
-        }
+        // Clipboard listener
+        if (host._clipboard.HandleMessage(msg))
+            return IntPtr.Zero;
 
-        // Let TrayIconService handle WM_TRAYICON
+        // Tray icon
         if (host._tray?.HandleMessage(msg, wParam, lParam) == true)
-        {
             return IntPtr.Zero;
-        }
 
+        // WM_COMMAND (tray menu)
         if (msg == WM_COMMAND)
         {
             int id = wParam.ToInt32() & 0xFFFF;
             if (id == ID_TRAY_SHOWHIDE)
-            {
                 host._uiQueue.TryEnqueue(() => host.RaiseToggleUiAtCursor());
-            }
             else if (id == ID_TRAY_SETTINGS)
-            {
                 host._uiQueue.TryEnqueue(() => host.SettingsRequested?.Invoke());
-            }
             else if (id == ID_TRAY_EXIT)
-            {
                 host._uiQueue.TryEnqueue(() => host.ExitRequested?.Invoke());
-            }
-
             return IntPtr.Zero;
         }
 
@@ -282,7 +214,7 @@ internal sealed class MessageOnlyWindowHost : IDisposable
         return DefWindowProc(hWnd, msg, wParam, lParam);
     }
 
-    #region Win32
+    // ── Win32 P/Invoke (message pump / window creation only) ─────────────────
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     private struct WNDCLASSEX
@@ -319,18 +251,9 @@ internal sealed class MessageOnlyWindowHost : IDisposable
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern IntPtr CreateWindowEx(
-        uint dwExStyle,
-        string lpClassName,
-        string lpWindowName,
-        uint dwStyle,
-        int X,
-        int Y,
-        int nWidth,
-        int nHeight,
-        IntPtr hWndParent,
-        IntPtr hMenu,
-        IntPtr hInstance,
-        IntPtr lpParam);
+        uint dwExStyle, string lpClassName, string lpWindowName,
+        uint dwStyle, int X, int Y, int nWidth, int nHeight,
+        IntPtr hWndParent, IntPtr hMenu, IntPtr hInstance, IntPtr lpParam);
 
     [DllImport("user32.dll")]
     private static extern IntPtr DefWindowProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
@@ -350,26 +273,6 @@ internal sealed class MessageOnlyWindowHost : IDisposable
     [DllImport("user32.dll")]
     private static extern bool PostMessage(IntPtr hWnd, int Msg, IntPtr wParam, IntPtr lParam);
 
-    [DllImport("user32.dll")]
-    private static extern IntPtr CreatePopupMenu();
-
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    private static extern bool AppendMenu(IntPtr hMenu, uint uFlags, int uIDNewItem, string lpNewItem);
-
-    [DllImport("user32.dll")]
-    private static extern bool DestroyMenu(IntPtr hMenu);
-
-    [DllImport("user32.dll")]
-    private static extern int TrackPopupMenuEx(IntPtr hmenu, uint fuFlags, int x, int y, IntPtr hwnd, IntPtr lptpm);
-
-    [DllImport("user32.dll")]
-    private static extern bool SetForegroundWindow(IntPtr hWnd);
-
-    [DllImport("user32.dll")]
-    private static extern bool GetCursorPos(out Win32Helper.POINT lpPoint);
-
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern IntPtr LoadIcon(IntPtr hInstance, IntPtr lpIconName);
-
-    #endregion
 }

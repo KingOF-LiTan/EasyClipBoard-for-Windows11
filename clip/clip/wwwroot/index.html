@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WinClipboard Vault</title>
+    <title data-i18n="app.title">WinClipboard Vault</title>
     <!-- Add query strings to bypass WebView2 cache -->
     <link rel="stylesheet" href="styles.css?v=2">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -24,24 +24,27 @@
         <div id="nav-bar">
             <div id="segmented-control">
                 <div id="segment-slider"></div>
-                <button class="segment active" data-tab="history" onclick="switchTab('history')">历史</button>
-                <button class="segment" data-tab="favorites" onclick="switchTab('favorites')">收藏</button>
+                <button class="segment active" data-tab="history" data-i18n="nav.history">历史</button>
+                <button class="segment" data-tab="favorites" data-i18n="nav.favorites">收藏</button>
             </div>
             <div id="nav-actions">
-                <button class="icon-btn" id="btn-settings" onclick="toggleSettings()" title="设置">
+                <button class="icon-btn" id="btn-settings" title="设置"
+                    data-i18n-prop="title:settings.title">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="12" cy="12" r="3" />
                         <path
                             d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.32 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
                     </svg>
                 </button>
-                <button class="icon-btn" id="btn-vault" onclick="toggleVault()" title="保险箱">
+                <button class="icon-btn" id="btn-vault" title="保险箱"
+                    data-i18n-prop="title:vault.title">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
                         <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                     </svg>
                 </button>
-                <button class="icon-btn" id="btn-clear" onclick="clearHistory()" title="清空历史">
+                <button class="icon-btn" id="btn-clear" title="清空历史"
+                    data-i18n-prop="title:action.clearHistory">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <polyline points="3 6 5 6 21 6" />
                         <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
@@ -57,7 +60,8 @@
                 <circle cx="11" cy="11" r="8" />
                 <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
-            <input type="text" id="search-input" placeholder="搜索...  /img /file 过滤类型" autocomplete="off">
+            <input type="text" id="search-input" data-i18n-prop="placeholder:search.placeholder"
+                placeholder="搜索...  /img /file 过滤类型" autocomplete="off">
         </div>
 
         <!-- Main List -->
@@ -69,45 +73,62 @@
                     <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
                     <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
                 </svg>
-                <span>暂无记录</span>
+                <span data-i18n="list.empty">暂无记录</span>
             </div>
         </div>
 
         <!-- Settings Panel (hidden by default) -->
         <div id="settings-panel" class="panel hidden">
             <div class="panel-header">
-                <button class="icon-btn" onclick="toggleSettings()">
+                <button class="icon-btn" data-action="close-settings">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="19" y1="12" x2="5" y2="12" />
                         <polyline points="12 19 5 12 12 5" />
                     </svg>
                 </button>
-                <h3>设置</h3>
+                <h3 data-i18n="settings.title">设置</h3>
             </div>
             <div class="panel-body">
                 <div class="setting-group">
-                    <h4>外观</h4>
+                    <h4 data-i18n="settings.group.appearance">外观</h4>
                     <div class="setting-row">
-                        <span>主题</span>
-                        <select id="theme-select" onchange="changeTheme(this.value)">
-                            <option value="light">浅色</option>
-                            <option value="dark">深色</option>
+                        <span data-i18n="settings.language">语言 (Language)</span>
+                        <select id="lang-select">
+                            <option value="zh">简体中文</option>
+                            <option value="en">English</option>
                         </select>
                     </div>
                     <div class="setting-row">
-                        <span>背景图片</span>
+                        <span data-i18n="settings.theme.label">主题</span>
+                        <select id="theme-select">
+                            <option value="light" data-i18n="settings.theme.light">浅色</option>
+                            <option value="dark" data-i18n="settings.theme.dark">深色</option>
+                        </select>
+                    </div>
+                    <div class="setting-row">
+                        <span data-i18n="settings.bg.label">背景图片</span>
                         <div class="setting-actions">
-                            <button class="small-btn" onclick="pickBackground()">选择</button>
-                            <button class="small-btn" onclick="clearBackground()">清除</button>
+                            <button class="small-btn" id="btn-pick-bg" data-i18n="settings.bg.select">选择</button>
+                            <button class="small-btn" id="btn-clear-bg" data-i18n="settings.bg.clear">清除</button>
                         </div>
+                    </div>
+                    <div class="setting-row">
+                        <span data-i18n="settings.bgOpacity">背景遮罩透明度</span>
+                        <input type="range" id="mask-slider" min="0" max="1" step="0.05">
                     </div>
                 </div>
                 <div class="setting-group">
-                    <h4>系统</h4>
+                    <h4 data-i18n="settings.group.system">系统</h4>
                     <div class="setting-row">
-                        <span>开机自启</span>
+                        <span data-i18n="settings.autostart">开机自启</span>
                         <label class="toggle"><input type="checkbox" id="autostart-toggle"><span
                                 class="toggle-slider"></span></label>
+                    </div>
+                    <div class="setting-row setting-row-stacked">
+                        <span data-i18n="settings.shortcut.label">全局唤出快捷键</span>
+                        <input type="text" id="shortcut-input" readonly
+                            data-i18n-prop="placeholder:settings.shortcut.placeholder" placeholder="点击并按下快捷键..."
+                            class="shortcut-input">
                     </div>
                 </div>
             </div>
@@ -116,54 +137,55 @@
         <!-- Vault Panel (hidden by default) -->
         <div id="vault-panel" class="panel hidden">
             <div class="panel-header">
-                <button class="icon-btn" onclick="toggleVault()">
+                <button class="icon-btn" data-action="close-vault">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="19" y1="12" x2="5" y2="12" />
                         <polyline points="12 19 5 12 12 5" />
                     </svg>
                 </button>
-                <h3>🔐 保险箱</h3>
-                <button class="small-btn" style="margin-left:auto" onclick="addSecret()">+ 添加</button>
+                <h3 data-i18n="vault.title">🔐 保险箱</h3>
+                <button class="small-btn panel-header-action" id="btn-add-secret" data-i18n="vault.add">+ 添加</button>
             </div>
             <div class="panel-body">
-                <input type="text" id="vault-search" placeholder="搜索别名..." oninput="searchVault(this.value)">
+                <input type="text" id="vault-search" data-i18n-prop="placeholder:vault.search.placeholder"
+                    placeholder="搜索别名...">
                 <div id="vault-list"></div>
             </div>
         </div>
 
         <!-- Preview Modal -->
-        <div id="preview-modal" class="hidden" onclick="closePreview()">
-            <div id="preview-content" onclick="event.stopPropagation()"></div>
+        <div id="preview-modal" class="hidden">
+            <div id="preview-content"></div>
         </div>
     </div>
 
     <!-- Vault Add Modal -->
     <div id="vault-add-modal" class="hidden">
-        <div class="confirm-box" style="width: 360px">
-            <h3 style="margin-top:0; margin-bottom: 16px">添加记录</h3>
-            <div class="setting-row" style="margin-bottom: 8px">
-                <span style="min-width: 50px">名称</span>
+        <div class="confirm-box vault-add-box">
+            <h3 class="modal-title" data-i18n="vault.modal.title">添加记录</h3>
+            <div class="setting-row vault-form-row">
+                <span class="vault-form-label" data-i18n="vault.modal.alias.label">名称</span>
                 <input type="text" id="vault-add-alias" placeholder="例如：我的服务器、GitHub"
-                    style="width: 100%; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--search-border); background: var(--search-bg); color: var(--text-primary)">
+                    data-i18n-prop="placeholder:vault.modal.alias.placeholder" class="form-control">
             </div>
-            <div class="setting-row" style="margin-bottom: 8px">
-                <span style="min-width: 50px">账号</span>
+            <div class="setting-row vault-form-row">
+                <span class="vault-form-label" data-i18n="vault.modal.username.label">账号</span>
                 <input type="text" id="vault-add-username" placeholder="(可选) root、邮箱等"
-                    style="width: 100%; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--search-border); background: var(--search-bg); color: var(--text-primary)">
+                    data-i18n-prop="placeholder:vault.modal.username.placeholder" class="form-control">
             </div>
-            <div class="setting-row" style="margin-bottom: 8px">
-                <span style="min-width: 50px">密码</span>
+            <div class="setting-row vault-form-row">
+                <span class="vault-form-label" data-i18n="vault.modal.password.label">密码</span>
                 <input type="password" id="vault-add-password" placeholder="密码/密钥内容"
-                    style="width: 100%; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--search-border); background: var(--search-bg); color: var(--text-primary)">
+                    data-i18n-prop="placeholder:vault.modal.password.placeholder" class="form-control">
             </div>
-            <div class="setting-row" style="margin-bottom: 20px">
-                <span style="min-width: 50px">备注</span>
+            <div class="setting-row vault-form-row vault-form-row-last">
+                <span class="vault-form-label" data-i18n="vault.modal.remark.label">备注</span>
                 <textarea id="vault-add-remark" placeholder="(可选) 域名、端口等附加信息" rows="2"
-                    style="width: 100%; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--search-border); background: var(--search-bg); color: var(--text-primary); resize: none; font-family: inherit; font-size: inherit;"></textarea>
+                    data-i18n-prop="placeholder:vault.modal.remark.placeholder" class="form-control form-textarea"></textarea>
             </div>
-            <div style="display:flex; justify-content:flex-end; gap:10px">
-                <button id="vault-add-cancel" class="small-btn" onclick="closeVaultAddModal()">取消</button>
-                <button id="vault-add-ok" class="small-btn primary" onclick="submitVaultAdd()">保存</button>
+            <div class="modal-actions">
+                <button id="vault-add-cancel" class="small-btn" data-i18n="vault.modal.cancel">取消</button>
+                <button id="vault-add-ok" class="small-btn primary" data-i18n="vault.modal.save">保存</button>
             </div>
         </div>
     </div>
@@ -171,16 +193,27 @@
     <!-- Confirm Modal -->
     <div id="confirm-modal" class="hidden">
         <div class="confirm-box">
-            <h3 style="margin-top:0">提示</h3>
-            <p id="confirm-message" style="margin-bottom:20px; color:var(--text-secondary)"></p>
-            <div style="display:flex; justify-content:flex-end; gap:10px">
-                <button id="confirm-cancel" class="small-btn">取消</button>
-                <button id="confirm-ok" class="small-btn danger">确定</button>
+            <h3 class="modal-title compact" data-i18n="confirm.title">提示</h3>
+            <p id="confirm-message" class="confirm-message"></p>
+            <div class="modal-actions">
+                <button id="confirm-cancel" class="small-btn" data-i18n="confirm.cancel">取消</button>
+                <button id="confirm-ok" class="small-btn danger" data-i18n="confirm.ok">确定</button>
             </div>
         </div>
     </div>
 
-    <script src="app.js?v=2"></script>
+    <script src="js/state.js?v=3"></script>
+    <script src="js/bridge.js?v=3"></script>
+    <script src="js/i18n.js?v=3"></script>
+    <script src="js/overlays.js?v=3"></script>
+    <script src="js/history.js?v=3"></script>
+    <script src="js/listView.js?v=3"></script>
+    <script src="js/listActions.js?v=3"></script>
+    <script src="js/drag.js?v=3"></script>
+    <script src="js/keyboard.js?v=3"></script>
+    <script src="js/settings.js?v=3"></script>
+    <script src="js/vault.js?v=3"></script>
+    <script src="app.js?v=3"></script>
 </body>
 
 </html>
