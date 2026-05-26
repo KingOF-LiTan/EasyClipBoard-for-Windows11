@@ -25,6 +25,10 @@ namespace clip
         private DispatcherQueue? _uiDispatcher;
         private bool _isInitialized;
         private Mutex? _singleInstanceMutex;
+        private EventWaitHandle? _showWindowEvent;
+        private RegisteredWaitHandle? _showWindowRegistration;
+        private DispatcherQueueTimer? _showWindowTimer;
+        private bool _showWindowRequestPending;
 
         // ── 热切换 (Hot Switch) 状态 ──
         private KeyboardHookService? _kbdHook;
@@ -63,6 +67,7 @@ namespace clip
             if (!createdNew)
             {
                 System.Diagnostics.Debug.WriteLine("[App] 已有实例运行，退出当前实例");
+                SignalExistingInstanceToShow();
                 _singleInstanceMutex.Dispose();
                 _singleInstanceMutex = null;
                 Application.Current.Exit();
@@ -74,6 +79,7 @@ namespace clip
             System.Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "00000000");
 
             _uiDispatcher = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+            RegisterShowWindowSignal();
 
             try
             {
@@ -81,6 +87,10 @@ namespace clip
                 _storage = new StorageService();
                 await _storage.InitAsync();
                 _isInitialized = true;
+                if (_showWindowRequestPending)
+                {
+                    RequestShowMainWindowAtCursor(TimeSpan.FromMilliseconds(250));
+                }
                 System.Diagnostics.Debug.WriteLine("[App] 存储层初始化成功");
 
                 // ── 启动时清理 ──
@@ -119,6 +129,65 @@ namespace clip
             _kbdHook = new KeyboardHookService();
             _kbdHook.CtrlVPressed += OnHotSwitchPressed;
             _kbdHook.Start();
+
+            RequestShowMainWindowAtCursor(TimeSpan.FromMilliseconds(350));
+        }
+
+        private static void SignalExistingInstanceToShow()
+        {
+            try
+            {
+                using var evt = EventWaitHandle.OpenExisting(@"Local\WinClipboard.ShowWindow");
+                evt.Set();
+            }
+            catch (WaitHandleCannotBeOpenedException)
+            {
+                System.Diagnostics.Debug.WriteLine("[App] 未找到已有实例的显示事件");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[App] 通知已有实例显示失败: {ex.Message}");
+            }
+        }
+
+        private void RegisterShowWindowSignal()
+        {
+            try
+            {
+                _showWindowEvent = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\WinClipboard.ShowWindow");
+                _showWindowRegistration = ThreadPool.RegisterWaitForSingleObject(
+                    _showWindowEvent,
+                    (_, _) => _uiDispatcher?.TryEnqueue(() => RequestShowMainWindowAtCursor(TimeSpan.Zero)),
+                    null,
+                    Timeout.Infinite,
+                    executeOnlyOnce: false);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[App] 注册显示事件失败: {ex.Message}");
+            }
+        }
+
+        private void RequestShowMainWindowAtCursor(TimeSpan delay)
+        {
+            if (_uiDispatcher == null)
+            {
+                return;
+            }
+
+            if (!_isInitialized || _storage == null)
+            {
+                _showWindowRequestPending = true;
+                return;
+            }
+
+            _showWindowRequestPending = false;
+            _showWindowTimer?.Stop();
+            _showWindowTimer = _uiDispatcher.CreateTimer();
+            _showWindowTimer.Interval = delay;
+            _showWindowTimer.IsRepeating = false;
+            _showWindowTimer.Tick += (_, _) => ShowMainWindowAtCursor();
+            _showWindowTimer.Start();
         }
 
         /// <summary>
@@ -230,6 +299,27 @@ namespace clip
             }
         }
 
+        private void ShowMainWindowAtCursor()
+        {
+            if (!_isInitialized || _storage == null || _uiDispatcher == null)
+            {
+                _showWindowRequestPending = true;
+                return;
+            }
+
+            Win32Helper.GetCursorPos(out var pt);
+            if (_mainWindow == null)
+            {
+                _mainWindow = new MainWindow();
+                _mainWindow.Initialize(_storage, _uiDispatcher, SetSuppressFlag);
+            }
+
+            if (!_mainWindow.IsShowing)
+            {
+                _mainWindow.ShowWindowAt(pt.X, pt.Y);
+            }
+        }
+
         public async void TriggerPaste(long id)
         {
             if (_storage == null) return;
@@ -282,10 +372,36 @@ namespace clip
             if (result == ContentDialogResult.Primary)
             {
                 _purgeTimer?.Stop();
+                _showWindowTimer?.Stop();
+                _showWindowTimer = null;
                 _host?.Stop();
                 _storage?.Dispose();
+                ReleaseShowWindowSignal();
                 ReleaseSingleInstanceMutex();
                 Application.Current.Exit();
+            }
+        }
+
+        private void ReleaseShowWindowSignal()
+        {
+            try
+            {
+                _showWindowRegistration?.Unregister(null);
+            }
+            catch { }
+            finally
+            {
+                _showWindowRegistration = null;
+            }
+
+            try
+            {
+                _showWindowEvent?.Dispose();
+            }
+            catch { }
+            finally
+            {
+                _showWindowEvent = null;
             }
         }
 
