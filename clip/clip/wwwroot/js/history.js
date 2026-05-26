@@ -1,6 +1,7 @@
 /* WinClipboard history and favorites loading */
 (function (win) {
     const app = win.WinClipboard = win.WinClipboard || {};
+    let _chipFilter = null;
 
     function parseSearch(rawSearch) {
         let typeFilter = null;
@@ -14,7 +15,16 @@
             actualSearch = actualSearch.slice(5).trim();
         }
 
+        // Slash command takes priority; chip filter is fallback only when no slash was typed
+        if (!typeFilter && _chipFilter) typeFilter = _chipFilter;
+
         return { search: actualSearch, typeFilter };
+    }
+
+    function updateChipActive(filter) {
+        document.querySelectorAll('.filter-chip').forEach(chip => {
+            chip.classList.toggle('active', chip.dataset.filter === filter);
+        });
     }
 
     function switchTab(tab) {
@@ -48,12 +58,36 @@
             nextItems = nextItems.filter(i => i.type === typeFilter);
         }
 
+        // Sync chip active state: slash command wins, chip reflects it
+        const activeChip = (!typeFilter) ? 'all' :
+            (typeFilter === 'files') ? 'file' : typeFilter;
+        updateChipActive(activeChip);
+
         app.state.setItems(nextItems);
         if (nextItems.length > 0 && app.state.get().selectedIndex < 0) {
             app.state.setSelectedIndex(0);
         }
 
         app.listView.render();
+    }
+
+    function setChipFilter(filter) {
+        // Map chip values to item type values
+        if (filter === 'all') {
+            _chipFilter = null;
+        } else if (filter === 'text') {
+            _chipFilter = 'text';
+        } else if (filter === 'file') {
+            _chipFilter = 'files';
+        } else {
+            _chipFilter = filter; // 'image' stays 'image'
+        }
+
+        // Keep search focus if it was focused
+        const wasFocused = document.activeElement?.id === 'search-input';
+        refreshList().then(() => {
+            if (wasFocused) document.getElementById('search-input')?.focus();
+        });
     }
 
     function clearHistory() {
@@ -68,6 +102,10 @@
             button.addEventListener('click', () => switchTab(button.dataset.tab));
         });
         document.getElementById('btn-clear')?.addEventListener('click', clearHistory);
+
+        document.querySelectorAll('.filter-chip[data-filter]').forEach(chip => {
+            chip.addEventListener('click', () => setChipFilter(chip.dataset.filter));
+        });
     }
 
     app.history = {
@@ -75,6 +113,7 @@
         refreshList,
         parseSearch,
         clearHistory,
+        setChipFilter,
         bindEvents
     };
 })(window);

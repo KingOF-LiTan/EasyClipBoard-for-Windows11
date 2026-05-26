@@ -116,6 +116,9 @@
         document.getElementById('btn-pick-bg')?.addEventListener('click', pickBackground);
         document.getElementById('btn-clear-bg')?.addEventListener('click', clearBackground);
         document.getElementById('mask-slider')?.addEventListener('change', event => changeMaskOpacity(event.target.value));
+        document.getElementById('btn-settings-help')?.addEventListener('click', () => {
+            app.overlays.openHelpModal();
+        });
     }
 
     app.settings = {

@@ -371,6 +371,10 @@ body.anim-hide {
     /* Signal that this card can be dragged to another app */
 }
 
+.card-dragging {
+    opacity: 0.55;
+}
+
 .card:hover {
     background: var(--card-hover-bg);
     transform: translateY(-1px);
@@ -927,6 +931,49 @@ input[type="range"] {
     font-size: 13px;
     line-height: 1.6;
     color: var(--text-primary);
+    position: relative;
+    user-select: text;
+    -webkit-user-select: text;
+}
+
+.preview-close-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: var(--card-bg);
+    color: var(--text-secondary);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    z-index: 10;
+    transition: all 0.15s;
+}
+
+.preview-close-btn:hover {
+    background: var(--btn-hover);
+    color: #ef4444;
+}
+
+/* ── Window Drag Handle ── */
+#window-drag-handle {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 14px;
+    cursor: grab;
+    z-index: 5;
+    -webkit-app-region: no-drag;
+}
+
+#window-drag-handle:active {
+    cursor: grabbing;
 }
 
 #preview-content img {
@@ -1001,6 +1048,102 @@ input[type="range"] {
     display: flex;
     justify-content: flex-end;
     gap: 10px;
+}
+
+/* ── Toast ── */
+#toast {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%) translateY(24px);
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    padding: 6px 16px;
+    font-size: 12px;
+    color: var(--text-primary);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: var(--card-shadow);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s;
+    z-index: 3000;
+}
+
+#toast.visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* ── Filter Chips ── */
+#filter-chips {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.filter-chip {
+    padding: 3px 10px;
+    border: 1px solid var(--card-border);
+    background: var(--card-bg);
+    color: var(--text-secondary);
+    border-radius: 6px;
+    font-size: 11px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.filter-chip:hover {
+    background: var(--btn-hover);
+    color: var(--text-primary);
+}
+
+.filter-chip.active {
+    background: var(--accent-blue);
+    color: #fff;
+    border-color: var(--accent-blue);
+}
+
+/* ── Help Modal ── */
+#help-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+#help-modal.hidden {
+    display: none;
+}
+
+.help-box {
+    width: 280px;
+}
+
+.help-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 8px 12px;
+    margin: 12px 0;
+    font-size: 12px;
+    align-items: center;
+}
+
+.help-key {
+    font-family: 'Consolas', monospace;
+    background: var(--segment-bg);
+    padding: 2px 8px;
+    border-radius: 4px;
+    color: var(--accent-blue);
+    font-weight: 600;
+    text-align: center;
 }
 
 /* ── Utility ── */

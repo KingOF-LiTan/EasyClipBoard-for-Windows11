@@ -12,6 +12,20 @@
         let dragStartY = 0;
         let dragFired = false;
 
+        // ── Shield duration: 1500ms to cover DoDragDrop and any latent mouse events ──
+        const SHIELD_MS = 1500;
+
+        function resetDragState() {
+            if (dragCard) {
+                dragCard.classList.remove('card-dragging');
+                dragCard = null;
+            }
+            dragFired = false;
+            if (win.__isDragging) {
+                setTimeout(() => { win.__isDragging = false; }, SHIELD_MS);
+            }
+        }
+
         document.addEventListener('pointerdown', (e) => {
             if (e.button !== 0) return; // left button only
             const card = e.target.closest('.card-draggable');
@@ -20,7 +34,7 @@
             dragStartX = e.clientX;
             dragStartY = e.clientY;
             dragFired = false;
-            // Don't preventDefault here, as it kills the native click event for onCardClick.
+            // Don't preventDefault here, as it kills the native click event.
         });
 
         document.addEventListener('pointermove', (e) => {
@@ -29,30 +43,28 @@
             const dx = e.clientX - dragStartX;
             const dy = e.clientY - dragStartY;
 
-            // Increase threshold slightly so jittered clicks don't become drags and break copy.
             if (Math.hypot(dx, dy) < 12) return;
 
             dragFired = true;
+            dragCard.classList.add('card-dragging');
+            win.__isDragging = true;
+
             const id = parseInt(dragCard.dataset.id, 10);
             if (!isNaN(id)) {
-                dragCard.style.opacity = '0.55';
-
-                // Turn on anti-click shield since native drag may synthesize mouse events.
-                win.__isDragging = true;
-
-                // Critical: Do NOT await this message; native DoDragDrop blocks.
-                app.bridge.send('startDrag', { id });
-
-                setTimeout(() => {
-                    if (dragCard) dragCard.style.opacity = '';
-                    dragCard = null;
-                    setTimeout(() => win.__isDragging = false, 1500);
-                }, 100);
+                // Fire-and-forget: native DoDragDrop blocks until drag ends
+                app.bridge.send('startDrag', { id }).then(() => {
+                    // Drag completed on native side — clean up immediately
+                    resetDragState();
+                }).catch(() => {
+                    resetDragState();
+                });
+            } else {
+                resetDragState();
             }
         });
 
         const cleanup = () => {
-            if (dragCard) dragCard.style.opacity = '';
+            if (dragCard) dragCard.classList.remove('card-dragging');
             dragCard = null;
         };
 
@@ -65,7 +77,9 @@
 
         document.addEventListener('pointerup', cleanup);
         document.addEventListener('pointerleave', cleanup);
-        document.addEventListener('pointercancel', cleanup);
+        document.addEventListener('pointercancel', () => {
+            resetDragState();
+        });
     }
 
     app.drag = {

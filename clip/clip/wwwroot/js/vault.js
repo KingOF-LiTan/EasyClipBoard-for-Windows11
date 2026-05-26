@@ -91,9 +91,12 @@
         }
     }
 
-    async function deleteSecret(id) {
-        await app.bridge.send('deleteSecret', { id });
-        await refresh();
+    function deleteSecret(id) {
+        app.overlays.showConfirm(app.i18n.t('confirm.deleteItem'), async () => {
+            await app.bridge.send('deleteSecret', { id });
+            app.toast.deleted();
+            await refresh();
+        });
     }
 
     function search(query) {

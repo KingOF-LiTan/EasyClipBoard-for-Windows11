@@ -1,111 +1,159 @@
 # WinClipboard Agent Guide
 
-本文档是本项目后续协作 agent 的入口说明。当前项目的主要矛盾不是底层能力缺失，而是 WebView2 前端的设计语言、状态边界和操作逻辑需要被重新整理；所有角色都应围绕“稳定剪贴板核心能力，逐步改善前端体验”开展工作。
+本文档是本项目后续协作 agent 的入口说明。当前 implementer 上下文已丢失时，先读本文件，再读 `system_map.md` 和 `docs/architecture/2026-05-24-runtime-ux-feedback-task-cards.md`。
 
-## Project Snapshot
+## Current Project State
 
-- 产品定位：Windows 剪贴板历史、收藏与保险箱工具，强调快速唤出、键盘流式操作、敏感信息加密保存、图片/文件历史记录。
+- 产品：Windows 剪贴板历史、收藏、保险箱、图片/文件历史、快捷唤出工具。
 - 技术栈：.NET 8 + WinUI 3 + Windows App SDK + WebView2 + Vanilla HTML/CSS/JS + SQLite。
-- 当前主 UI 路径：`clip/clip/MainWindow.xaml` 只承载 WebView2，真实界面在 `clip/clip/wwwroot/index.html`、`styles.css`、`app.js`。
-- C# 主路径：`App.xaml.cs` 负责启动、剪贴板监听、热切换、清理定时器；`MessageOnlyWindowHost.cs` 负责 Win32 消息窗口、托盘、热键、剪贴板更新；`WebBridge.cs` 是前后端 JSON action 网关；`StorageService.cs` 是 SQLite 持久层。
-- 旧路径提示：`ViewModels/` 与部分 XAML 文件看起来是早期 WinUI 实现遗留，不应优先作为新 UI 的真实架构依据。
+- 当前分支：`codex/boundary-hardening-and-ux-cards`。
+- 当前工作区：有未提交改动。不要回滚用户或其他 agent 的修改。
+- 主 UI：`clip/clip/MainWindow.xaml` 承载 WebView2，真实界面在 `clip/clip/wwwroot/`。
+- 前端已拆分：`app.js` 只负责启动编排；交互逻辑在 `wwwroot/js/*.js`。
+- 后端 bridge 已拆分：`Bridge/WebBridge.cs` 只做 action dispatch，具体 action 分到 `Bridge/*Actions.cs`。
 
-## Shared Working Rules
+## Current Progress Snapshot
 
-1. 先读当前代码再改动，尤其是 `app.js`、`WebBridge.cs`、`StorageService.cs`、`MessageOnlyWindowHost.cs` 的交互链。
-2. 不要回滚用户已有改动；当前工作区已经有未提交修改。
-3. 前端优化优先保留 WebView2 + Vanilla JS 的轻量路线，除非明确决定引入构建系统。
-4. 对所有操作逻辑改动，都要说明它影响的是单击、键盘、拖拽、预览、保险箱、设置还是全局热键。
-5. UI 改动必须同时考虑深色、浅色、Mica/Acrylic 透明背景、图片背景模式。
-6. 后端 action 新增或改名时，必须同步更新 `WebBridge.cs` 和 `wwwroot/app.js`，并在 `system_map.md` 记录数据流变化。
-7. 涉及剪贴板写入时，必须检查 `_suppressUntil` / `SetSuppressFlag` / `App.SuppressClipboardUpdate`，避免“自写自读”生成重复历史。
-8. 涉及敏感内容时，默认最小暴露：列表展示遮蔽、复制时才解密、日志不输出明文。
+已完成并应保持稳定：
 
-## Current Pain Points
+- C# 边界拆分：bridge、storage、native service 已从大文件拆出。
+- 前端边界拆分：`state.js`、`bridge.js`、`history.js`、`listView.js`、`listActions.js`、`keyboard.js`、`overlays.js`、`settings.js`、`vault.js`、`drag.js`、`toast.js`、`windowMove.js`。
+- 构建/检查脚本：
+  - `scripts/verify-build.ps1`
+  - `scripts/check-frontend-js.ps1`
+  - `scripts/check-runtime-smoke.ps1`
+  - `scripts/check-interaction-affordance.ps1`
+- 运行时防重入：`App.xaml.cs` 使用 `Local\WinClipboard.SingleInstance`。
+- 交互基础语义：
+  - 单击卡片：只选择。
+  - 双击卡片：粘贴并隐藏窗口。当前实现使用 click counter，避免 DOM 重绘导致原生 `dblclick` 丢失。
+  - Enter：粘贴选中项。
+  - Space / 预览按钮：预览。
+  - 1-9：快速粘贴。
+  - Escape：关闭最上层 overlay 或隐藏窗口。
+- 过滤：搜索框保留 `/img`、`/file`，并新增 All/Text/Image/File chips。
+- 操作提示：顶部 `?` 按钮和设置里的“查看”入口可打开 help modal。
+- 粘贴关闭：普通粘贴和保险箱复制不再等 toast 再隐藏。
+- 预览：文本/文件预览进入 modal，支持 close 按钮和右键关闭逻辑；文本选择样式已加入。
+- 窗口移动：新增 `windowMove.js`，通过 `startWindowMove` bridge action 调用原生窗口移动。
 
-- `wwwroot/app.js` 约 789 行，混合桥接、状态、渲染、快捷键、拖拽、设置、保险箱和动画，修改某个交互容易影响其他区域。
-- `index.html` 存在较多内联样式与硬编码中文，虽然已有 `locales/`，但 i18n 覆盖不完整。
-- 列表卡片的单击即粘贴、拖拽启动、预览入口、悬浮操作按钮共存，操作语义容易冲突。
-- `styles.css` 依赖多层透明和系统背景，视觉效果好但调试困难；每次调颜色都要同时验证纯色背景、图片背景、深浅主题。
-- `WebBridge.cs` action 数量较多，目前是单个 switch 网关，后续需要更清晰的 action 分组和错误返回约定。
-- 最近构建日志显示过两个风险：`App.Host` 暴露 internal 类型导致 CS0053，以及运行中的 `clip.exe` 锁定输出文件导致复制失败。正式判断前请以当前构建输出为准。
+当前仍需优先处理/验收：
 
-## Role: Architect
+1. `FB03` 预览体验：人工确认文本/文件预览可选中、Ctrl+C 可复制、右键空白处关闭、选中文本时右键不误关。
+2. `FB05` 窗口移动：人工确认顶部移动把手可用，且不影响卡片拖拽、搜索、预览选中文本。
+3. `FB04` 原生拖拽：图片拖到 QQ/Codex、文本拖到编辑器、文件拖到接收目标；重点看是否卡住、是否清理 `.card-dragging` 和 `window.__isDragging`。
+4. 清理本地杂项：当前 status 里可能出现 `.vscode/...vita-loader-test.html` 之类临时文件，未确认用途前不要随手提交。
 
-目标：定义边界、命名、交互语义和演进路线，让实现者能小步改、调试者能快速定位。
+## Role Rules
+
+### Architect
 
 职责：
 
-- 维护系统地图和模块边界，避免把所有新逻辑继续堆进 `app.js` 或 `WebBridge.cs`。
-- 为前端体验建立稳定语义：什么动作是“选择”，什么动作是“粘贴”，什么动作是“预览”，什么动作是“拖出”。
-- 设计 UI 状态模型：主列表、搜索、选中项、面板、模态框、拖拽、快捷键录制不应互相隐式覆盖。
-- 拆分优化阶段：先修交互语义和视觉层级，再做代码模块化，再考虑性能如虚拟列表。
-- 每个架构建议都要附带影响文件、迁移步骤和验证点。
+- 只定义边界、任务卡、验收标准、风险和下一阶段顺序。
+- 维护 `agent.md`、`system_map.md`、`docs/architecture/*task-cards.md`。
+- 不直接实现代码，除非用户明确要求。
+- 发现实现偏离任务卡时，先 review，再更新任务卡或要求 implementer 收口。
 
 Architect 提示词：
 
 ```text
-你是 WinClipboard 的 architect。请先阅读 agent.md 和 system_map.md，再查看当前代码。你的任务是给出可落地的结构方案，不直接大改代码。重点关注 WebView2 前端、C# bridge action、剪贴板监听和 UI 操作语义之间的边界。输出应包含目标、受影响文件、迁移步骤、风险和验证方式。
+你是 WinClipboard 的 architect。请先阅读 agent.md 和 system_map.md，再查看当前代码和 docs/architecture 最新任务卡。你的职责是维护边界和验收标准，不直接大改代码。输出应包含当前状态、已完成项、待做项、风险、验证方式和推荐执行顺序。
 ```
 
-## Role: Implementer
-
-目标：按既定边界小步实现，优先改善用户可感知的前端设计和操作逻辑。
+### Implementer
 
 职责：
 
-- 改动前确认当前主路径，不要把精力投入已废弃的 ViewModel/XAML UI。
-- 前端代码保持无构建依赖，除非任务明确要求引入工具链。
-- 将复杂 UI 行为拆成可读的小函数，优先减少 `renderList()`、`setupKeyboardShortcuts()` 和面板逻辑的互相耦合。
-- 新 UI 控件要写完整状态：默认、悬浮、选中、禁用、加载、空态、错误态。
-- 新增 bridge action 时保持请求/响应可预测，失败时返回 `{ success: false, error }` 风格，避免前端只能靠 `null` 猜测。
-- 不要为了视觉调整破坏热键、拖拽、粘贴、透明背景和敏感信息遮蔽。
+- 按任务卡小步实现，不扩大范围。
+- 每次只碰当前任务涉及的 owner 文件。
+- 不把逻辑重新堆回 `app.js` 或 `WebBridge.cs`。
+- 不引入 Node 构建链；继续使用 Vanilla JS。
+- 不使用 inline handlers：禁止 `onclick=`, `onchange=`, `oninput=`, `.onclick`, `.onchange`, `.oninput`。
+- 交互改动必须同步更新 `scripts/check-interaction-affordance.ps1`。
+- 涉及 bridge action 时同步更新：
+  - `Bridge/WebBridge.cs`
+  - 对应 `Bridge/*Actions.cs`
+  - `system_map.md`
+- 涉及剪贴板写入时确认 suppress flag，避免自写自读。
 
 Implementer 提示词：
 
 ```text
-你是 WinClipboard 的 implementer。请根据 agent.md 和 system_map.md 实现当前任务。优先遵守现有 WebView2 + Vanilla JS 架构，小步修改并说明影响到的交互路径。所有前端调整都要同时考虑深色/浅色、纯色/Mica、图片背景模式；所有剪贴板写入都要检查自触发抑制。
+你是 WinClipboard 的 implementer。先读 agent.md、system_map.md 和 docs/architecture/2026-05-24-runtime-ux-feedback-task-cards.md。只实现当前被指定的 task，不扩大范围。保持现有 WebView2 + Vanilla JS 架构，新增交互必须同步更新 check-interaction-affordance.ps1。完成后说明改动文件、交互路径、验证命令和人工验收点。
 ```
 
-## Role: Debugger
-
-目标：用证据定位问题，不凭感觉改 UI 或 Win32 交互。
+### Debugger
 
 职责：
 
-- 先复现，再定位；优先收集当前构建输出、Debug.WriteLine、WebView2 console/log bridge、用户操作路径。
-- 区分问题层级：Web DOM/CSS、JS 状态、bridge action、storage、clipboard reader/writer、Win32 hotkey/message window。
-- 对前端问题，检查 `window.onerror`、`unhandledrejection`、bridge timeout、DOM 是否被整段 `innerHTML` 重绘破坏状态。
-- 对构建问题，先确认是否有运行中的 `clip.exe` 锁定输出，再看 C# 编译错误。
-- 对剪贴板重复或误捕获，重点检查 `_suppressUntil`、`DedupeWindow`、`BuildFingerprint()` 和 `ClipboardWriter`。
-- 对快捷键问题，重点检查 `MessageOnlyWindowHost.RegisterHotKey/RebindHotKey`、WebView2 accelerator 设置和 `app.js` 的手动 modifier 追踪。
+- 先复现，再定位；不要凭感觉改。
+- 按层分诊：DOM/CSS、JS 状态、bridge action、storage、clipboard writer/reader、Win32 hotkey/message window、native drag/drop。
+- 对前端问题优先检查：
+  - 事件是否被 `innerHTML` 重绘破坏。
+  - overlay 是否有 z-index/display/position。
+  - `window.__isDragging` 是否卡住。
+  - bridge 是否 timeout 或返回 `{ success:false, error }`。
+- 对运行时 smoke 问题优先确认是否有残留 `AppX/clip.exe` 或剪贴板被占用。
 
 Debugger 提示词：
 
 ```text
-你是 WinClipboard 的 debugger。请先阅读 agent.md 和 system_map.md，然后根据复现路径分层定位。不要直接猜测修复；先说明证据、相关文件、可能层级、最小验证命令或操作，再提出最小补丁。特别注意 WebView2、Win32 热键、剪贴板自触发和运行中 exe 锁文件问题。
+你是 WinClipboard 的 debugger。先读 agent.md 和 system_map.md，再按复现路径分层定位。不要直接猜补丁；先给证据、相关文件、故障层级、最小验证命令，再给最小修复建议。特别注意 WebView2 事件重绘、overlay 层级、Win32/OLE drag、剪贴板自触发和残留进程。
 ```
 
-## Recommended Frontend Direction
+## File Ownership
 
-短期目标：
+前端：
 
-- 明确列表操作语义：建议区分“单击选择/预览”和“显式粘贴”，或至少让拖拽、预览、悬浮按钮不与单击粘贴冲突。
-- 整理主界面信息层级：搜索、标签/类型筛选、历史/收藏切换、卡片操作按钮应有稳定位置和一致反馈。
-- 移除新增内联样式，统一沉到 `styles.css`，并补齐 `locales/zh.json`、`locales/en.json`。
-- 为 `app.js` 划分逻辑区块或逐步拆文件：bridge、state、list、keyboard、settings、vault、preview。
+- `wwwroot/app.js`：启动编排。不要放业务逻辑。
+- `wwwroot/js/state.js`：共享状态。
+- `wwwroot/js/bridge.js`：WebView2 bridge、超时、C# 回调。
+- `wwwroot/js/history.js`：历史/收藏加载、搜索、chips、清空历史。
+- `wwwroot/js/listView.js`：列表 DOM、事件委托、双击 click counter、缩略图。
+- `wwwroot/js/listActions.js`：选择、粘贴、删除、收藏、tag。
+- `wwwroot/js/keyboard.js`：快捷键、搜索 debounce、快捷键录制。
+- `wwwroot/js/overlays.js`：预览、确认框、help modal、面板关闭顺序、窗口动画。
+- `wwwroot/js/settings.js`：设置面板事件与持久化。
+- `wwwroot/js/vault.js`：保险箱。
+- `wwwroot/js/drag.js`：卡片拖拽到外部应用。
+- `wwwroot/js/windowMove.js`：窗口移动把手。
+- `wwwroot/js/toast.js`：轻量反馈。
 
-中期目标：
+后端：
 
-- 给 bridge action 建一份轻量协议表，减少前后端字段漂移。
-- 给列表渲染引入局部更新或虚拟列表，避免大历史记录时整表重绘。
-- 将设置、保险箱、预览从“覆盖面板”整理成统一 overlay/modal 状态机。
+- `Bridge/WebBridge.cs`：action dispatch。
+- `Bridge/WindowActions.cs`：隐藏窗口、日志、拖拽、背景选择、窗口移动。
+- `Native/DragDropService.cs`：OLE drag/drop。
+- `MainWindow.xaml.cs`：WebView2 宿主、窗口显示/隐藏/定位。
 
-## Verification Checklist
+## Verification Commands
 
-- `dotnet build clip/clip.slnx`，如果失败先确认是否有运行中的 `clip.exe` 占用输出。
-- 手动唤出窗口，验证显示位置、透明背景、深浅主题。
-- 复制文本、图片、文件后验证历史记录生成、搜索、收藏、删除。
-- 验证 Enter、Space、Escape、ArrowUp/Down、1-9、Ctrl+F。
-- 验证保险箱新增、复制账号、复制密码、删除，不在普通历史暴露明文。
-- 验证设置：语言、主题、背景图、遮罩、自启、快捷键录制。
+常规验证：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\check-frontend-js.ps1
+powershell -ExecutionPolicy Bypass -File scripts\check-interaction-affordance.ps1
+powershell -ExecutionPolicy Bypass -File scripts\verify-build.ps1
+powershell -ExecutionPolicy Bypass -File scripts\check-runtime-smoke.ps1
+```
+
+注意：
+
+- `verify-build.ps1` 是当前稳定构建入口。
+- `dotnet build clip/clip.slnx` 在当前 .NET 8 SDK 下会因 `.slnx` 格式失败，属于已知 solution 格式问题。
+- 默认 `dotnet build clip/clip/clip.csproj` 会走 MSIX packaging 并可能报 `APPX0002`，不是当前本地编译入口。
+- 如果构建输出被锁，先关闭正在运行的 `clip.exe`。
+
+## Manual Smoke Checklist
+
+- 热键唤出窗口，Escape 隐藏。
+- 单击选择，双击粘贴，Enter 粘贴，1-9 快速粘贴。
+- 文本/图片/文件复制进入历史。
+- All/Text/Image/File chips 与 `/img`、`/file` 都可用。
+- 预览文本和文件，选择文字并 Ctrl+C。
+- Help 按钮和设置里的“查看”可打开提示。
+- 窗口移动把手可拖动窗口。
+- 图片卡片拖到 QQ/Codex，文本拖到编辑器，文件拖到可接收目标。
+- 删除历史/保险箱项需要确认，确认不会重复触发。
+- 保险箱复制不暴露明文到普通列表或日志。

@@ -25,17 +25,21 @@
         await app.bridge.send('hideWindow');
     }
 
-    async function deleteItem(idx) {
+    function deleteItem(idx) {
         const item = app.state.getItems()[idx];
         if (!item) return;
-        await app.bridge.send('delete', { id: item.id });
-        await app.history.refreshList();
+        app.overlays.showConfirm(app.i18n.t('confirm.deleteItem'), async () => {
+            await app.bridge.send('delete', { id: item.id });
+            app.toast.deleted();
+            await app.history.refreshList();
+        });
     }
 
     async function toggleFavorite(idx) {
         const item = app.state.getItems()[idx];
         if (!item) return;
         await app.bridge.send('toggleFavorite', { id: item.id });
+        app.toast[item.isFavorite ? 'unpinned' : 'pinned']();
         await app.history.refreshList();
     }
 
@@ -43,6 +47,7 @@
         const item = app.state.getItems()[idx];
         if (!item) return;
         await app.bridge.send('updateTag', { id: item.id, tag });
+        app.toast.show(app.i18n.t('toast.tagged'));
         await app.history.refreshList();
     }
 

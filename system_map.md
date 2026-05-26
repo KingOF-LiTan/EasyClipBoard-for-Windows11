@@ -1,6 +1,21 @@
 # WinClipboard System Map
 
-本文档记录当前代码结构、运行链路和高风险边界，供 architect、implementer、debugger 快速进入项目。
+本文档记录当前代码结构、运行链路、交互语义和待完成边界，供 architect、implementer、debugger 快速接手。
+
+## Current Status
+
+截至 2026-05-25，项目已完成一次主要边界拆分和一轮运行时体验修复。当前重点不是继续拆大文件，而是验收并硬化真实使用反馈：
+
+- `FB01` 双击卡片粘贴：已实现 click counter，用户已反馈可用。
+- `FB02` 粘贴立即关闭：已实现，不再等待 toast。
+- `FB06` 帮助入口：顶部 `?` 和设置入口已可打开 help modal。
+- `FB03` 预览可选中/右键退出：已有实现，仍需人工验收。
+- `FB05` 窗口移动把手：已有实现，仍需人工验收。
+- `FB04` 原生拖拽可靠性和图片拖拽：仍是最高风险剩余项。
+
+最新任务卡：
+
+- `docs/architecture/2026-05-24-runtime-ux-feedback-task-cards.md`
 
 ## High-Level Architecture
 
@@ -14,57 +29,131 @@ flowchart TD
     Storage --> Blobs["%LocalAppData%/WinClipboard/blobs"]
     App --> MainWindow["MainWindow.xaml.cs"]
     MainWindow --> WebView["WebView2: wwwroot/index.html"]
-    WebView --> JS["wwwroot/app.js"]
-    JS --> Bridge["WebBridge.cs"]
-    Bridge --> Storage
-    Bridge --> Writer["Core/Clipboard/ClipboardWriter.cs"]
+    WebView --> JS["wwwroot/js modules"]
+    JS --> Bridge["Bridge/WebBridge.cs"]
+    Bridge --> Actions["Bridge/*Actions.cs"]
+    Actions --> Storage
+    Actions --> Writer["Core/Clipboard/ClipboardWriter.cs"]
     Writer --> Clipboard["Windows Clipboard"]
+    Actions --> NativeDrag["Native/DragDropService.cs"]
+    Actions --> WindowMove["Native window move via SendMessage"]
 ```
 
 ## Repository Layout
 
-- `clip/clip.slnx`：Visual Studio solution。
-- `clip/clip/clip.csproj`：.NET 8 WinExe，Windows App SDK、WinUI、WebView2、SQLite 依赖；`wwwroot/**` 总是复制到输出目录。
-- `clip/clip/App.xaml.cs`：应用启动、存储初始化、消息 host、剪贴板监听、热切换、定时清理。
-- `clip/clip/MainWindow.xaml(.cs)`：无边框置顶窗口和 WebView2 宿主；负责透明背景、Mica/Acrylic、窗口定位、显示/隐藏动画触发。
-- `clip/clip/Bridge/WebBridge.cs`：前端 action 到 C# 服务的薄路由层。
-- `clip/clip/Bridge/*Actions.cs`：按 history、vault、settings、media、window 分组的 bridge action 实现。
-- `clip/clip/Bridge/ClipboardItemDtoMapper.cs`：存储实体到前端 DTO 的映射。
+- `clip/clip.slnx`：Visual Studio solution。当前 CLI SDK 不支持此 `.slnx` XML 格式，勿作为本地验证入口。
+- `clip/clip/clip.csproj`：.NET 8 WinExe，Windows App SDK、WinUI、WebView2、SQLite 依赖。
+- `clip/clip/App.xaml.cs`：应用启动、单实例 mutex、存储初始化、剪贴板监听、热切换、清理定时器。
+- `clip/clip/MainWindow.xaml(.cs)`：无边框置顶窗口、WebView2 宿主、窗口显示/隐藏/定位。
+- `clip/clip/Bridge/`：WebView2 action 路由与分组 action。
 - `clip/clip/Core/`：剪贴板读写、数据模型、加密、存储、OCR、设置。
-- `clip/clip/Core/Storage/StorageService.cs`：公开 API facade，委托给 repo/connection/blob 类。
-- `clip/clip/Core/Storage/StorageConnection.cs`：SQLite 连接、锁、底层 query/exec helpers。
-- `clip/clip/Core/Storage/StorageMigrator.cs`：CREATE TABLE、ALTER TABLE 迁移、索引。
-- `clip/clip/Core/Storage/BlobStore.cs`：blob 目录、SHA256、图片读写。
-- `clip/clip/Core/Storage/ClipboardItemRepository.cs`：条目保存、历史/收藏查询、tag/favorite/delete/purge。
-- `clip/clip/Core/Storage/VaultRepository.cs`：敏感条目列表、手动添加密钥、别名更新。
-- `clip/clip/Native/`：Win32 message-only window、托盘、热键、拖拽、辅助 P/Invoke。
-- `clip/clip/Native/GlobalHotkeyService.cs`：主快捷键注册/rebind、WM_HOTKEY 和 WM_APP_REBIND 处理。
-- `clip/clip/Native/ClipboardListenerService.cs`：WM_CLIPBOARDUPDATE 监听与 UI 事件分发。
-- `clip/clip/Native/PlainTextPasteService.cs`：Ctrl+Shift+V 纯文本读取/回写/粘贴。
-- `clip/clip/wwwroot/`：当前真实前端；Vanilla HTML/CSS/JS，无 Node 构建链。
-- `clip/clip/UI/HotSwitchToast.*`：Ctrl+V 连按热切换提示窗口。
-- `clip/clip/ViewModels/`：旧 WinUI MVVM 路径，当前 WebView2 主界面不依赖它。
+- `clip/clip/Native/`：Win32 message-only window、托盘、热键、拖拽、P/Invoke。
+- `clip/clip/wwwroot/`：真实前端，无 Node 构建链。
+- `clip/clip/ViewModels/`：旧 WinUI MVVM 路径，当前主界面不依赖。
 
 ## Runtime Lifecycle
 
-1. `App.OnLaunched()` 设置 WebView2 透明背景环境变量。
-2. 初始化 `StorageService`，打开 SQLite，迁移缺失列，创建索引。
+1. `App.OnLaunched()` 获取 `Local\WinClipboard.SingleInstance` mutex。已有实例时新进程直接退出。
+2. 初始化 `StorageService`，打开 SQLite，执行迁移和索引创建。
 3. 后台清理 3 天以上的非收藏、非敏感历史。
 4. 启动 `MessageOnlyWindowHost`：
    - 创建 message-only HWND。
    - 注册主唤出热键，默认 Ctrl+Tab。
    - 注册纯文本粘贴热键 Ctrl+Shift+V。
    - 注册剪贴板监听。
-   - 创建托盘图标和右键菜单。
+   - 创建托盘图标和菜单。
 5. 启动 `KeyboardHookService`，支持 Ctrl+V 连按热切换最近文本。
-6. 用户通过热键或托盘唤出窗口时，`MainWindow` 创建 WebView2 并加载 `https://app.local/index.html`。
-7. 前端通过 `window.chrome.webview.postMessage()` 请求数据或执行动作。
+6. 用户热键/托盘唤出时，`MainWindow.ShowWindowAt()` 显示 WebView2 窗口。
+7. 前端通过 `window.chrome.webview.postMessage()` 调用 bridge action。
 
-Single-instance rule:
+## Frontend Startup
 
-- `App.OnLaunched()` takes a per-user named mutex, `Local\WinClipboard.SingleInstance`.
-- If another instance is already running, the new process exits before storage, WebView2, hotkeys, tray, or clipboard listener initialization.
-- Runtime smoke uses `scripts/check-runtime-smoke.ps1` to clean stale `clip.exe` processes, launch the expected `win-x64\clip.exe`, assert only one instance remains after a second launch, then verify storage DB creation and clipboard marker capture.
+`wwwroot/app.js` 只做启动编排：
+
+1. `i18n.applyTranslations()`
+2. `history.bindEvents()`
+3. `settings.bindEvents()`
+4. `vault.bindEvents()`
+5. `overlays.bindEvents()`
+6. `settings.load()`
+7. `history.refreshList()`
+8. `keyboard.init()`
+9. `drag.setupDragHandle()`
+10. `windowMove.init()`
+
+不要把业务逻辑加回 `app.js`。
+
+## Frontend Modules
+
+- `state.js`：共享状态、当前 tab、items、选中项、主题、panel/modal、缩略图缓存。
+- `bridge.js`：`app.bridge.send()`、requestId、timeout、`__bridge_response`、`__on_clipboard_updated`、JS 错误日志。
+- `i18n.js`：`t()`、`applyTranslations()`，接收后端语言切换推送。
+- `history.js`：历史/收藏加载、`/img` `/file`、All/Text/Image/File chips、tab 和清空历史。
+- `listView.js`：列表渲染、事件委托、preview action、manual double-click click counter、缩略图懒加载。
+- `listActions.js`：选择、双击/显式粘贴、删除确认、收藏、tag。
+- `keyboard.js`：Escape、Ctrl+F、方向键、Enter、Space、1-9、可选 `?` / `Shift+/` help、快捷键录制。
+- `overlays.js`：preview modal、confirm modal、help modal、panel 互斥、window show/hide 动画、顶层 Escape 关闭。
+- `settings.js`：设置面板、语言、主题、背景、遮罩、自启、帮助入口。
+- `vault.js`：保险箱列表、搜索、新增、复制账号/密码、删除确认。
+- `drag.js`：卡片拖拽到外部应用，维护 `.card-dragging` 和 `window.__isDragging`。
+- `windowMove.js`：顶部窗口移动把手，调用 `startWindowMove` bridge action。
+- `toast.js`：复制、收藏、删除、tag、保险箱复制等轻量反馈。
+
+## Current Interaction Semantics
+
+- Single click card：只选择。
+- Double click card：粘贴并隐藏窗口。不要只依赖原生 `dblclick`，当前用 `DBLCLICK_WINDOW` click counter。
+- Paste button：粘贴并隐藏窗口。
+- Enter：粘贴选中项。
+- Space：预览选中项。
+- 1-9：快速粘贴对应序号。
+- Preview button：预览，不粘贴。
+- Escape：关闭最上层 modal/panel；没有顶层时隐藏窗口。
+- Help：顶部 `?` icon 和 Settings -> 查看，均打开 `#help-modal`。
+- Search：普通文本搜索，`/img`、`/file` 仍可用；chips 映射为 `all/text/image/files`。
+- Drag card：超过阈值后触发 native drag/drop；失败或取消必须清理 dragging state。
+- Move window：拖动 `#window-drag-handle`，通过 `startWindowMove` 让原生窗口移动。
+
+## Bridge Action Map
+
+`Bridge/WebBridge.cs` dispatch:
+
+- History:
+  - `getHistory(search, limit)`
+  - `getFavorites(search, category)`
+  - `paste(id)`
+  - `delete(id)`
+  - `toggleFavorite(id)`
+  - `updateTag(id, tag)`
+  - `clearHistory()`
+- Vault:
+  - `getSensitiveItems(search)`
+  - `addSecret(alias, content, sensitiveType, username, remark)`
+  - `deleteSecret(id)`
+  - `decryptSecret(id)`
+  - `getUsername(id)`
+  - `pasteText(text)`
+  - `updateAlias(id, alias)`
+- Settings:
+  - `getSettings()`
+  - `setTheme(theme)`
+  - `setLanguage(language)`
+  - `selectBackgroundImage()`
+  - `setBackground(path)`
+  - `clearBackground()`
+  - `setMaskOpacity(opacity)`
+  - `getAutostart()`
+  - `setAutostart(enabled)`
+  - `setShortcut(modifiers, code)`
+- Media:
+  - `getImageThumbnail(id)`
+  - `getFullText(id)` returns full text or file paths.
+  - `showImagePreviewWindow(id)`
+- Window/native:
+  - `hideWindow()`
+  - `log(level, message)`
+  - `startDrag(id)`
+  - `startWindowMove()`
 
 ## Clipboard Capture Flow
 
@@ -79,255 +168,167 @@ sequenceDiagram
 
     Windows->>Host: WM_CLIPBOARDUPDATE
     Host->>App: ClipboardChanged event on UI queue
-    App->>App: check _suppressUntil
+    App->>App: check suppress flag
     App->>Reader: ReadAsync()
     Reader-->>App: ClipboardItemDraft
     App->>App: sensitive detection + dedupe
     App->>Storage: SaveItemAsync()
     App-->>UI: NotifyClipboardChanged()
-    UI->>Storage: via WebBridge getHistory/getFavorites
+    UI->>Storage: bridge getHistory/getFavorites
 ```
 
-Important details:
+Important:
 
-- 图片优先读取 `StandardDataFormats.Bitmap`，上限约 20 MB。
-- 文件读取 `StandardDataFormats.StorageItems`。
-- 文本读取 `StandardDataFormats.Text`，会做敏感内容识别。
-- 非收藏、非敏感历史会被 3 天清理策略影响。
-- 图片 blob 使用 SHA256 去重，存储在 `%LocalAppData%/WinClipboard/blobs`。
+- 图片优先读取 bitmap，上限约 20 MB。
+- 文件读取 storage items。
+- 文本会做敏感内容识别。
+- 图片 blob 使用 SHA256 去重。
+- 粘贴或保险箱复制前必须设置 suppress flag，避免自写自读。
 
 ## Paste Flow
 
 ```mermaid
 sequenceDiagram
-    participant JS as app.js
+    participant JS as listActions.js / keyboard.js
     participant Bridge as WebBridge.cs
+    participant History as HistoryActions.cs
     participant Storage as StorageService
     participant Writer as ClipboardWriter
-    participant App as App.xaml.cs
     participant Win as Windows Clipboard
 
     JS->>Bridge: paste { id }
-    Bridge->>Storage: GetItemByIdAsync(id)
-    Bridge->>App: onBeforeClipboardWrite()
-    Bridge->>Writer: WriteAsync(entity)
+    Bridge->>History: PasteAsync()
+    History->>Storage: GetItemByIdAsync(id)
+    History->>History: onBeforeClipboardWrite()
+    History->>Writer: WriteAsync(entity)
     Writer->>Win: SetContent(DataPackage)
     JS->>Bridge: hideWindow
 ```
 
-Risk points:
+Current rule:
 
-- `ClipboardWriter.WriteAsync()` 当前对敏感文本不会自动解密；保险箱复制走 `decryptSecret` + `pasteText`。
-- 粘贴前必须设置 suppress flag，否则写回剪贴板可能又被监听成新历史。
-- UI 单击卡片直接粘贴，与选择、预览、拖拽之间存在语义冲突。
+- 粘贴成功后立即隐藏窗口，不等待 toast。
+- 若 bridge 返回失败，不应显示成功 toast 或隐藏窗口。
 
-## Frontend Map
+## Native Drag Flow
 
-`wwwroot/index.html`：
+```mermaid
+sequenceDiagram
+    participant JS as drag.js
+    participant Bridge as WindowActions.cs
+    participant Native as DragDropService.cs
+    participant Target as External app
 
-- 顶部 segmented control：历史/收藏。
-- 顶部 icon actions：设置、保险箱、清空历史。
-- 搜索栏：普通搜索，`/img` 和 `/file` 类型过滤。
-- 主列表：`#item-list` 由 `renderList()` 整体 innerHTML 重绘。
-- 覆盖层：设置面板、保险箱面板、文本预览 modal、添加保险箱 modal、确认 modal。
+    JS->>JS: pointer threshold > 12
+    JS->>Bridge: startDrag(id)
+    Bridge->>Storage: GetItemByIdAsync(id)
+    Bridge->>Native: StartDrag(filePaths/text)
+    Native->>Target: OLE DoDragDrop
+    Native-->>Bridge: returns when drag ends
+    Bridge-->>JS: response
+    JS->>JS: clear card-dragging / __isDragging
+```
 
-`wwwroot/app.js` 当前只负责启动编排：`DOMContentLoaded` 后应用翻译、加载设置、刷新列表、初始化键盘和拖拽入口。
+Risk:
 
-`wwwroot/js/` 前端模块：
+- `DoDragDrop` 是阻塞式 native loop。
+- 图片拖拽目前重点仍需真实 QQ/Codex 验收。
+- `WindowActions.StartDragAsync()` 仍可能涉及 synthetic mouse state，调试时重点看卡住后 `__isDragging` 是否清理。
 
-- `state.js`：创建 `window.WinClipboard` 命名空间，维护当前 tab、列表、选中项、主题、面板/模态状态和缩略图缓存。
-- `bridge.js`：`WinClipboard.bridge.send()`、`window.__bridge_response()`、剪贴板更新回调和 JS 错误日志桥接。
-- `i18n.js`：`t()`、`applyTranslations()`；保留后端 `setLanguage` 仍会调用的全局函数。
-- `history.js`：历史/收藏加载、`/img` 与 `/file` 搜索解析、tab 切换和清空历史确认入口。
-- `listView.js`：卡片 DOM 渲染、事件委托、懒加载缩略图、选中项滚动、HTML 转义和类型/标签图标。
-- `listActions.js`：卡片选择、单击选择、双击/显式按钮粘贴、删除、收藏、标签更新。
-- `drag.js`：document-level pointer drag 识别、`startDrag` bridge 调用和拖拽后的 anti-click shield。
-- `keyboard.js`：Escape、Ctrl+F、方向键、Enter、Space、1-9、搜索 debounce 和全局快捷键录制。
-- `settings.js`：主题、语言、背景图、遮罩、自启和快捷键显示设置。
-- `vault.js`：敏感保险箱列表、搜索、新增、复制账号/密码、删除。
-- `overlays.js`：设置/保险箱面板互斥、预览、确认框、窗口显示/隐藏动画、Escape 顶层关闭顺序。
+## Window Move Flow
 
-前端兼容层状态：
+```mermaid
+sequenceDiagram
+    participant JS as windowMove.js
+    participant Bridge as WebBridge.cs
+    participant Window as WindowActions.cs
+    participant Win32 as SendMessage
 
-- `index.html` 不再使用 `onclick`、`onchange`、`oninput` inline handlers。
-- 列表卡片和保险箱生成 HTML 不再使用 inline handlers，改由 `listView.js` 与 `vault.js` 做事件委托。
-- 仍保留的 C# 回调全局函数：`window.__bridge_response`、`window.__on_clipboard_updated`、`window.__on_window_shown`、`window.hideWindowAnimated`。
+    JS->>Bridge: startWindowMove
+    Bridge->>Window: StartWindowMove()
+    Window->>Win32: WM_NCLBUTTONDOWN + HTCAPTION
+```
 
-文案和样式边界：
+Rules:
 
-- `locales/zh.json`、`locales/en.json` 负责可见 UI 文案，包括保险箱、确认框、快捷键录制提示和操作按钮标题。
-- `styles.css` 负责设置面板、保险箱新增 modal、确认框、预览 loading、标签颜色和 vault remark 等视觉样式；`index.html` 与生成 HTML 不再承载 `style=` 属性。
-
-`wwwroot/styles.css` 主要层次：
-
-- `:root` 和 `[data-theme="dark"]` 定义主题变量。
-- 三层背景：`#bg-layer`、`#overlay-layer`、`#content-layer`。
-- 列表卡片、图片卡片、hover actions、selected ring。
-- settings/vault panel、preview modal、confirm modal。
-
-## Bridge Action Map
-
-完整请求/响应协议见 `docs/architecture/bridge-action-protocol.md`。后端拆分后的 owner：
-
-- `Bridge/WebBridge.cs`：解析 JSON、按 action dispatch、统一回写 `window.__bridge_response(...)`。
-- `Bridge/BridgeRequest.cs`：action、requestId 和 `JsonElement` 生命周期封装。
-- `Bridge/BridgeResponse.cs`：标准 `{ success: false, error }` 失败响应辅助。
-- `Bridge/HistoryActions.cs`：history/favorites/delete/favorite/tag/clear/paste。
-- `Bridge/VaultActions.cs`：vault list/add/delete/decrypt/username/pasteText/updateAlias。
-- `Bridge/SettingsActions.cs`：settings/theme/language/background/mask/autostart/shortcut。
-- `Bridge/MediaActions.cs`：thumbnail/full text/image preview。
-- `Bridge/WindowActions.cs`：hide/log/startDrag/background picker。
-- `Bridge/ClipboardItemDtoMapper.cs`：masked preview、color detection、timeAgo 和 media metadata DTO 映射。
-
-History and favorites:
-
-- `getHistory(search, limit)` -> list of mapped entities.
-- `getFavorites(search, category)` -> list of favorites, optional category filter.
-- `paste(id)` -> write item to clipboard (with suppress flag).
-- `delete(id)` -> delete item.
-- `toggleFavorite(id)` -> flip favorite.
-- `updateTag(id, tag)` -> update tag.
-- `clearHistory()` -> delete non-favorite, non-sensitive history.
-
-Sensitive vault:
-
-- `getSensitiveItems(search)` -> sensitive list.
-- `addSecret(alias, content, sensitiveType, username, remark)` -> encrypted insert.
-- `deleteSecret(id)` -> delete item.
-- `decryptSecret(id)` -> returns decrypted text.
-- `getUsername(id)` -> returns username.
-- `pasteText(text)` -> writes plain text to clipboard.
-
-Settings:
-
-- `getSettings()` -> theme, background, language, hotkey, autostart.
-- `setTheme(theme)` -> persist and update DWM theme.
-- `setLanguage(language)` -> persist and push locale JSON to JS.
-- `selectBackgroundImage()` -> WinUI picker, copies image to local folder, returns base64.
-- `setBackground(path)`, `clearBackground()`, `setMaskOpacity(opacity)`.
-- `getAutostart()`, `setAutostart(enabled)`.
-- `setShortcut(modifiers, code)` -> rebinds main hotkey.
-
-Preview and media:
-
-- `getImageThumbnail(id)` -> returns full image as base64 data URI.
-- `getFullText(id)` -> returns full text or file paths.
-- `showImagePreviewWindow(id)` -> opens native preview window.
-
-Window and diagnostics:
-
-- `hideWindow()` -> immediate native hide.
-- `log(level, message)` -> Debug.WriteLine from JS.
-- `startDrag(id)` -> starts native drag/drop for text/image/files.
-- `selectBackgroundImage()` -> WinUI file picker; copies to local folder; returns base64.
+- 只允许移动把手触发窗口移动。
+- 不要让整页可拖动，避免破坏卡片拖拽、搜索输入和预览文字选择。
 
 ## Data Model
 
-SQLite table `items`:
+SQLite `items` fields:
 
-- Identity and classification: `id`, `type`, `captured_at`, `tag`, `is_favorite`.
-- Sensitive fields: `is_sensitive`, `sensitive_type`, `text_content`, `username`, `alias`, `remark`.
-- Image fields: `image_blob`, `image_hash`, `image_w`, `image_h`, `ocr_text`.
-- File fields: `file_paths`.
+- Identity/type: `id`, `type`, `captured_at`, `tag`, `is_favorite`.
+- Sensitive: `is_sensitive`, `sensitive_type`, `text_content`, `username`, `alias`, `remark`.
+- Image: `image_blob`, `image_hash`, `image_w`, `image_h`, `ocr_text`.
+- Files: `file_paths`.
 
-Mapped entity sent to JS includes:
+DTO to JS:
 
 - `id`, `type`, `tag`, `preview`, `colorHex`, `alias`.
 - `isFavorite`, `isSensitive`, `sensitiveType`, `username`, `remark`.
 - `capturedAt`, `timeAgo`, `hasImage`, `imageWidth`, `imageHeight`.
 
-## Native Integration Map
+## Known Risks And Open Work
 
-- `MessageOnlyWindowHost.cs` owns HWND thread, message pump, WndProc routing, tray menu; delegates hotkey/clipboard/paste to focused services.
-- `GlobalHotkeyService.cs` handles hotkey registration, WM_HOTKEY dispatch, and thread-affine rebind.
-- `ClipboardListenerService.cs` handles WM_CLIPBOARDUPDATE and dispatches UI events.
-- `PlainTextPasteService.cs` reads plain Unicode text from clipboard and performs synthetic Ctrl+V paste.
-- `KeyboardHookService.cs` detects Ctrl+V presses for hot-switch behavior.
-- `DragDropService.cs` bridges Web UI card dragging into native drag/drop.
-- `Win32Helper.cs` and `Win32Helper.Clipboard.cs` centralize P/Invoke constants and helpers.
-- `TrayIconService.cs` owns notification icon lifecycle.
+High priority:
 
-Threading rule:
+- `FB03` Preview manual verification:
+  - Text/file preview can select text.
+  - Ctrl+C copies selected preview text.
+  - Right-click closes only when no active selection.
+  - Escape closes preview first.
+- `FB05` Window move manual verification:
+  - Handle moves window.
+  - Does not affect card drag or preview selection.
+- `FB04` Drag/drop:
+  - Image drag into QQ/Codex.
+  - Text drag into editor.
+  - File drag into file-accepting target.
+  - Cancel/fail drag cleanup.
 
-- HWND-bound hotkey operations must run on the message window thread. `RebindHotKey()` uses `WM_APP_REBIND` to marshal onto the correct thread.
-- UI operations must be enqueued through `DispatcherQueue`.
+Medium priority:
 
-## Known Design and Operation Issues
+- Help content currently says “键盘快捷键”; task card wanted 操作提示 / Operation Tips. If product direction favors general tips, rename copy and include mouse actions.
+- Static script checks many interactions, but cannot prove modal visual layer or native drag behavior.
+- `WinClipboard.bridge.send()` still uses timeout behavior; UI should avoid treating timeout/null as success.
+- `GetSettings()` has historical mask opacity mismatch risk; verify current behavior before changing.
 
-Frontend design:
+Known build/package gaps:
 
-- Visual hierarchy is compact but crowded: segmented tabs, search, three icon buttons, list cards and hover actions compete in a 380 x 560 window.
-- Emoji and inline SVG/icons are mixed; card actions use symbols like star, dot and x, while top actions use SVG.
-- Settings/vault/add modal inline styles and hardcoded text have been moved into `styles.css` and locale JSON. Remaining visual debt is icon/style normalization.
-- Transparent/Mica styling makes contrast fragile; card, panel and overlay opacity must be tested in multiple modes.
-
-Operation logic:
-
-- Single click selects; double-click or paste button (→) pastes; Enter pastes selected; Space previews; 1-9 quick-pastes.
-- `renderList()` rebuilds all card DOM after many state changes, which resets transient UI state and may become slow with large lists.
-- Drag shield uses `window.__isDragging` and timeouts; it prevents accidental click after drag but is timing-sensitive.
-- `WinClipboard.bridge.send()` resolves `null` on timeout for most actions, so UI still cannot always distinguish timeout from a valid empty response.
-- Keyboard shortcut logic has been isolated in `keyboard.js`, but modal/panel focus rules still need careful regression testing.
-
-Backend risk:
-
-- `WebBridge.HandleMessageAsync()` now returns `{ success: false, error }` for request-scoped exceptions, but action-level response shapes are still mixed between raw arrays and `{ success }` objects.
-- `GetSettings()` currently hardcodes `maskOpacity = 0.3` and `blurAmount = 30.0`, while `setMaskOpacity` persists another value.
-- Current local compile verification uses `scripts/verify-build.ps1`. `dotnet build clip/clip.slnx` is not supported by the installed .NET 8 SDK because the SDK/MSBuild does not understand the `.slnx` XML solution format. Default project build reaches MSIX packaging before failing in `WinAppSdkGenerateAppxPackageRecipe`; keep that as the packaging path to fix separately.
-
-## Suggested Optimization Path
-
-Phase 1: Interaction semantics
-
-- Keep the chosen card semantics stable: single click selects; double-click or explicit paste button pastes.
-- Make preview, paste, drag and card actions visually discoverable and non-conflicting.
-- Give all destructive actions consistent confirm behavior.
-
-Phase 2: UI structure
-
-- Keep inline styles out of `index.html` and generated HTML strings.
-- Keep i18n coverage for vault, confirm, action titles and validation messages.
-- Normalize icon style and button states.
-
-Phase 3: JS boundaries
-
-- Split or at least section `app.js` by responsibility: bridge, state, list, keyboard, overlays, settings, vault.
-- Introduce a small state/update layer so list selection and panel state are explicit.
-- Standardize bridge error handling.
-
-Phase 4: Performance and scale
-
-- Add pagination or virtual list for history beyond 200 items.
-- Avoid base64-loading full images as thumbnails; generate/store smaller thumbnails if image history grows.
-- Reduce full `innerHTML` list redraws where possible.
+- `dotnet build clip/clip.slnx` fails with `MSB4068` on current SDK.
+- Default project build can enter MSIX packaging and fail with `APPX0002`.
+- Use `scripts/verify-build.ps1` for local compile validation.
 
 ## Verification Matrix
 
-Build:
+Commands:
 
-- Stable local compile: `powershell -ExecutionPolicy Bypass -File scripts/verify-build.ps1`.
-- Equivalent command: `dotnet build clip/clip/clip.csproj /p:WindowsPackageType=None /p:EnableMsixTooling=false /p:DisableMsixProjectCapabilityAddedByProject=true /p:GenerateAppxPackageOnBuild=false /p:AppxPackage=false`.
-- Frontend syntax: `powershell -ExecutionPolicy Bypass -File scripts/check-frontend-js.ps1`.
-- Runtime smoke: `powershell -ExecutionPolicy Bypass -File scripts/check-runtime-smoke.ps1`.
-- Known packaging gap: default `dotnet build clip/clip/clip.csproj` still enters MSIX packaging and fails in `WinAppSdkGenerateAppxPackageRecipe` with `APPX0002`.
-- Known solution gap: `dotnet build clip/clip.slnx` fails with `MSB4068` on the pinned .NET 8 SDK; use the project compile script until the SDK/solution format is updated.
-- If output is locked, close the running `clip.exe` before rebuilding. Avoid concurrent builds against this project because XAML markup compilation writes shared `obj/.../input.json`.
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\check-frontend-js.ps1
+powershell -ExecutionPolicy Bypass -File scripts\check-interaction-affordance.ps1
+powershell -ExecutionPolicy Bypass -File scripts\verify-build.ps1
+powershell -ExecutionPolicy Bypass -File scripts\check-runtime-smoke.ps1
+```
 
-Manual functional checks:
+Manual:
 
 - Hotkey toggles UI at cursor and Escape hides it.
 - Text/image/file copies appear in history.
-- Search works for text, `/img`, `/file`, and OCR text when available.
-- Enter pastes selected item; Space previews; 1-9 quick-pastes.
-- Card drag works without accidental paste.
-- Favorite/delete/tag actions work and refresh list correctly.
-- Vault add/copy/delete works; sensitive text is masked in normal list.
+- Search works for text, `/img`, `/file`, and chips.
+- Single click selects; double-click pastes; Enter pastes; Space previews; 1-9 quick-pastes.
+- Preview text/file: select, Ctrl+C, right-click, Escape.
+- Help icon and Settings -> 查看 open help modal.
+- Move window by top handle.
+- Card drag text/image/file to real external targets.
+- Favorite/delete/tag actions work and refresh list.
+- Vault add/copy/delete works; sensitive content remains masked.
 - Theme, language, background image, mask opacity, autostart and hotkey recorder work.
 
-Visual checks:
+Visual:
 
 - Dark + pure Mica/Acrylic.
 - Light + pure Mica/Acrylic.
 - Dark + custom background image.
 - Light + custom background image.
-- Long text, image card, file card, empty list, empty vault, modal overlays.
+- Long text, image card, file card, empty list, empty vault, preview/help/confirm overlays.

@@ -58,23 +58,24 @@
         }
 
         const modal = document.getElementById('preview-modal');
-        const content = document.getElementById('preview-content');
+        const body = document.getElementById('preview-body');
         const escapeHtml = app.listView.escapeHtml;
 
-        if (item.type === 'text') {
-            content.innerHTML = `<div class="preview-loading">${app.i18n.t('preview.loading')}</div>`;
+        if (item.type === 'text' || item.type === 'files') {
+            body.innerHTML = `<div class="preview-loading">${app.i18n.t('preview.loading')}</div>`;
             modal.classList.remove('hidden');
             openModal('preview');
             app.bridge.send('getFullText', { id: item.id }).then(res => {
+                const target = document.getElementById('preview-body');
                 if (res && res.success) {
-                    document.getElementById('preview-content').innerHTML = `<pre class="preview-text">${escapeHtml(res.text || app.i18n.t('preview.empty'))}</pre>`;
+                    target.innerHTML = `<pre class="preview-text">${escapeHtml(res.text || app.i18n.t('preview.empty'))}</pre>`;
                 } else {
-                    document.getElementById('preview-content').innerHTML = `<pre>${escapeHtml(item.preview || app.i18n.t('preview.empty'))}</pre>`;
+                    target.innerHTML = `<pre>${escapeHtml(item.preview || app.i18n.t('preview.empty'))}</pre>`;
                 }
             });
             return;
         } else {
-            content.innerHTML = `<pre>${escapeHtml(item.preview || app.i18n.t('preview.empty'))}</pre>`;
+            body.innerHTML = `<pre>${escapeHtml(item.preview || app.i18n.t('preview.empty'))}</pre>`;
         }
 
         modal.classList.remove('hidden');
@@ -99,7 +100,10 @@
         const newCancel = btnCancel.cloneNode(true);
         btnOk.parentNode.replaceChild(newOk, btnOk);
         btnCancel.parentNode.replaceChild(newCancel, btnCancel);
+        let fired = false;
         newOk.addEventListener('click', () => {
+            if (fired) return;
+            fired = true;
             modal.classList.add('hidden');
             closeModal('confirm');
             onConfirm();
@@ -158,11 +162,30 @@
         }
     };
 
+    function toggleHelpModal() {
+        document.getElementById('help-modal').classList.toggle('hidden');
+    }
+
+    function openHelpModal() {
+        document.getElementById('help-modal').classList.remove('hidden');
+    }
+
     function bindEvents() {
         const modal = document.getElementById('preview-modal');
         const content = document.getElementById('preview-content');
+        // Close on backdrop click
         modal?.addEventListener('click', closePreview);
         content?.addEventListener('click', event => event.stopPropagation());
+        // Close button
+        document.getElementById('preview-close-btn')?.addEventListener('click', closePreview);
+        // Right-click close (only when no text selection is active)
+        modal?.addEventListener('contextmenu', event => {
+            const sel = win.getSelection();
+            if (!sel || sel.isCollapsed) {
+                event.preventDefault();
+                closePreview();
+            }
+        });
     }
 
     app.overlays = {
@@ -178,6 +201,8 @@
         playHideAnimation,
         hideWindowAnimated,
         closeTopOrHideWindow,
+        toggleHelpModal,
+        openHelpModal,
         bindEvents
     };
 

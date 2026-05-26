@@ -54,6 +54,7 @@
                     ${shortcut ? `<span class="card-shortcut">${shortcut}</span>` : ''}
                     <div class="card-actions">
                         <button class="card-action-btn paste-btn" data-action="paste" data-idx="${idx}" title="${app.i18n.t('action.paste')}">→</button>
+                        <button class="card-action-btn" data-action="preview" data-idx="${idx}" title="${app.i18n.t('action.preview')}">🔍</button>
                         <button class="card-action-btn" data-action="favorite" data-idx="${idx}" title="${app.i18n.t('action.pin')}">
                             ${item.isFavorite ? '★' : '☆'}
                         </button>
@@ -110,6 +111,12 @@
         if (container.dataset.eventsBound === '1') return;
         container.dataset.eventsBound = '1';
 
+        // Double-click detection via click counter (avoids native dblclick issues with
+        // innerHTML re-render, drag pointer handling, and anti-click shield timing).
+        let lastClickTime = 0;
+        let lastClickIdx = -1;
+        const DBLCLICK_WINDOW = 400;
+
         container.addEventListener('click', event => {
             const actionButton = event.target.closest('[data-action]');
             if (actionButton) {
@@ -118,6 +125,9 @@
                 switch (actionButton.dataset.action) {
                     case 'paste':
                         app.listActions.paste(idx);
+                        return;
+                    case 'preview':
+                        app.overlays.showPreview(idx);
                         return;
                     case 'favorite':
                         app.listActions.toggleFavorite(idx);
@@ -131,25 +141,23 @@
                 }
             }
 
-            const image = event.target.closest('.card-image');
-            if (image) {
-                event.stopPropagation();
-                app.overlays.showPreview(parseInt(image.dataset.idx, 10));
+            const card = event.target.closest('.card');
+            if (!card) return;
+
+            const idx = parseInt(card.dataset.idx, 10);
+            const now = Date.now();
+
+            if (idx === lastClickIdx && (now - lastClickTime) < DBLCLICK_WINDOW) {
+                // Double-click detected
+                app.listActions.onCardDoubleClick(idx);
+                lastClickTime = 0;
+                lastClickIdx = -1;
                 return;
             }
 
-            const card = event.target.closest('.card');
-            if (card) {
-                app.listActions.onCardClick(parseInt(card.dataset.idx, 10));
-            }
-        });
-
-        container.addEventListener('dblclick', event => {
-            const card = event.target.closest('.card');
-            if (card) {
-                event.preventDefault();
-                app.listActions.onCardDoubleClick(parseInt(card.dataset.idx, 10));
-            }
+            lastClickTime = now;
+            lastClickIdx = idx;
+            app.listActions.onCardClick(idx);
         });
     }
 

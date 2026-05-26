@@ -12,5 +12,6 @@
         await app.history.refreshList();
         app.keyboard.init();
         app.drag.setupDragHandle();
+        app.windowMove.init();
     });
 })(window);

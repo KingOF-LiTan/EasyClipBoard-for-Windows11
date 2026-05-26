@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using clip.Core.Models;
 using clip.Core.Storage;
+using WinRT.Interop;
 
 namespace clip.Bridge;
 
@@ -23,6 +24,20 @@ internal sealed class WindowActions
         Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread()?.TryEnqueue(() =>
         {
             MainWindow.Current?.HideWindowImmediate();
+        });
+        return new { success = true };
+    }
+
+    public object StartWindowMove()
+    {
+        Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread()?.TryEnqueue(() =>
+        {
+            if (MainWindow.Current != null)
+            {
+                var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(MainWindow.Current);
+                // WM_NCLBUTTONDOWN + HTCAPTION triggers native window move
+                Native.Win32Helper.SendMessage(hwnd, 0xA1, new IntPtr(2), IntPtr.Zero);
+            }
         });
         return new { success = true };
     }

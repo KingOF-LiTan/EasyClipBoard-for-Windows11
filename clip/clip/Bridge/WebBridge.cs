@@ -74,6 +74,7 @@ public sealed class WebBridge
                 "selectBackgroundImage" => await _windowActions.SelectBackgroundImageAsync(),
                 "log" => _windowActions.LogFromJs(request.Root),
                 "startDrag" => await _windowActions.StartDragAsync(request.Root),
+                "startWindowMove" => _windowActions.StartWindowMove(),
                 _ => BridgeResponse.Fail($"Unknown action: {request.Action}")
             };
 

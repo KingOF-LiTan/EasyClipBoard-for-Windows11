@@ -19,6 +19,11 @@
             const state = app.state.get();
 
             if (e.key === 'Escape') {
+                const helpModal = document.getElementById('help-modal');
+                if (helpModal && !helpModal.classList.contains('hidden')) {
+                    helpModal.classList.add('hidden');
+                    return;
+                }
                 app.overlays.closeTopOrHideWindow();
                 return;
             }
@@ -69,7 +74,19 @@
                 return;
             }
 
-            if (inInput) return;
+            if (inInput) {
+                if (e.key === 'Escape') {
+                    app.overlays.closeTopOrHideWindow();
+                }
+                return;
+            }
+
+            // Handle both '?' key and Shift+/ (which produces '?' on most layouts)
+            const isQuestionMark = e.key === '?' || (e.key === '/' && e.shiftKey);
+            if (isQuestionMark && !document.getElementById('shortcut-input')?.matches(':focus')) {
+                app.overlays.toggleHelpModal();
+                return;
+            }
 
             if (e.key === ' ' && app.state.get().selectedIndex >= 0) {
                 e.preventDefault();
@@ -204,6 +221,9 @@
         bindModifierTracking();
         bindShortcutRecorder(document.getElementById('shortcut-input'));
         bindSearchInput();
+        document.getElementById('btn-help')?.addEventListener('click', () => {
+            app.overlays.toggleHelpModal();
+        });
     }
 
     app.keyboard = {
